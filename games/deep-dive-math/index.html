@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deep Dive Math</title>
+<meta name="description" content="Adding and taking away, one ocean zone at a time.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127769;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root{
+  --abyss:#04142B;
+  --deep:#0A2E52;
+  --mid:#0F5C8C;
+  --shallow:#1B9AAA;
+  --surface:#6FE3E1;
+  --hull:#FFC247;
+  --hull-dark:#E09A1F;
+  --glow:#9DFF6E;
+  --coral:#FF6B57;
+  --ink:#04142B;
+  --paper:#EAF7FB;
+  --display:'Fredoka','Trebuchet MS',Verdana,sans-serif;
+  --body:'Nunito','Segoe UI',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+#stage{
+  font-family:var(--body);
+  color:var(--paper);
+  background:var(--shallow);
+  border-radius:18px;
+  overflow:hidden;
+  position:relative;
+  min-height:620px;
+  transition:background 900ms ease;
+  user-select:none;
+}
+@media (prefers-reduced-motion:reduce){
+  #stage{transition:none}
+  .bubble{display:none}
+  *{animation:none !important}
+}
+
+/* drifting bubbles */
+.bubble{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,.16);
+  bottom:-40px;pointer-events:none;
+  animation:rise linear infinite;
+}
+@keyframes rise{
+  from{transform:translateY(0) translateX(0);opacity:0}
+  10%{opacity:.7}
+  90%{opacity:.5}
+  to{transform:translateY(-700px) translateX(18px);opacity:0}
+}
+
+/* ---------- layout ---------- */
+.wrap{position:relative;z-index:2;display:flex;gap:0;min-height:620px}
+
+/* depth gauge rail */
+.gauge{
+  width:104px;flex:none;
+  background:rgba(4,20,43,.30);
+  border-right:2px solid rgba(255,255,255,.12);
+  position:relative;
+  padding:14px 0;
+}
+.gauge-track{position:absolute;left:58px;top:26px;bottom:20px;width:3px;background:rgba(255,255,255,.22);border-radius:2px}
+.tick{position:absolute;left:0;width:100%;display:flex;align-items:center;gap:6px;padding-left:12px;transform:translateY(-50%)}
+.tick i{display:block;width:20px;height:2px;background:rgba(255,255,255,.35);border-radius:2px;order:2}
+.tick span{font-family:var(--display);font-size:13px;font-weight:500;color:rgba(255,255,255,.62);width:44px;text-align:right;order:1}
+.tick.major i{width:30px;background:rgba(255,255,255,.7)}
+.tick.major span{color:#fff;font-weight:600}
+
+.sub{position:absolute;left:36px;width:48px;transition:top 620ms cubic-bezier(.34,1.3,.5,1);z-index:3}
+.sub svg{display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,.4))}
+.depth-now{
+  position:absolute;left:0;width:104px;text-align:center;
+  font-family:var(--display);font-size:15px;font-weight:700;color:var(--hull);
+  transition:top 620ms cubic-bezier(.34,1.3,.5,1);
+  text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+
+/* main panel */
+.main{flex:1;display:flex;flex-direction:column;padding:20px 22px 24px;min-width:0}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.zone-name{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.2px}
+.zone-sub{font-size:12.5px;color:rgba(255,255,255,.68);margin-top:1px}
+.streak{
+  font-family:var(--display);font-weight:600;font-size:14px;
+  background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.22);
+  padding:5px 11px;border-radius:999px;white-space:nowrap;
+}
+.streak.hot{background:var(--hull);color:var(--ink);border-color:var(--hull)}
+
+/* problem */
+.problem-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:8px 0;min-height:170px}
+.prompt-label{font-size:13px;color:rgba(255,255,255,.62);letter-spacing:.3px}
+.problem{
+  font-family:var(--display);font-weight:600;
+  font-size:clamp(38px,9vw,62px);line-height:1;text-align:center;
+  text-shadow:0 3px 14px rgba(0,0,0,.35);
+}
+.answer-slot{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(34px,8vw,54px);line-height:1;
+  min-width:130px;padding:8px 20px;text-align:center;
+  border-radius:14px;
+  background:rgba(4,20,43,.34);
+  border:3px dashed rgba(255,255,255,.3);
+  color:var(--hull);
+}
+.answer-slot.filled{border-style:solid;border-color:var(--hull)}
+.answer-slot.good{background:var(--glow);color:var(--ink);border-color:var(--glow);animation:pop 300ms ease}
+.answer-slot.bad{background:var(--coral);color:#fff;border-color:var(--coral);animation:shake 340ms ease}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+
+.feedback{min-height:22px;font-size:14.5px;font-weight:700;color:var(--glow);text-align:center}
+.feedback.miss{color:#FFD9D2;font-weight:600}
+
+/* keypad */
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:330px;width:100%;margin:0 auto}
+.key{
+  font-family:var(--display);font-size:26px;font-weight:600;
+  padding:15px 0;border-radius:14px;cursor:pointer;
+  background:rgba(255,255,255,.94);color:var(--ink);
+  border:none;border-bottom:4px solid rgba(4,20,43,.34);
+  transition:transform 80ms ease,filter 80ms ease;
+}
+.key:active{transform:translateY(3px);border-bottom-width:1px}
+.key:focus-visible{outline:3px solid var(--glow);outline-offset:3px}
+.key.util{background:rgba(255,255,255,.22);color:#fff;font-size:21px;border-bottom-color:rgba(4,20,43,.3)}
+.key.go{background:var(--hull);color:var(--ink);border-bottom-color:var(--hull-dark);font-weight:700}
+.key.go:disabled{opacity:.42;cursor:default;transform:none}
+
+/* discovery overlay */
+.discovery{
+  position:absolute;inset:0;z-index:20;
+  background:rgba(4,20,43,.93);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  padding:28px;text-align:center;
+}
+.discovery h2{font-family:var(--display);font-size:26px;margin:0;color:var(--glow)}
+.discovery p{margin:0;max-width:330px;font-size:15px;line-height:1.5;color:rgba(255,255,255,.85)}
+.creature{animation:float 3.4s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.btn{
+  font-family:var(--display);font-size:18px;font-weight:600;
+  background:var(--hull);color:var(--ink);border:none;
+  border-bottom:4px solid var(--hull-dark);
+  padding:13px 30px;border-radius:14px;cursor:pointer;margin-top:6px;
+}
+.btn:active{transform:translateY(3px);border-bottom-width:1px}
+.btn.ghost{background:rgba(255,255,255,.16);color:#fff;border-bottom-color:rgba(255,255,255,.25)}
+.btn:focus-visible{outline:3px solid var(--glow);outline-offset:3px}
+
+/* parent panel */
+.parent-link{
+  position:absolute;right:12px;bottom:10px;z-index:5;
+  background:none;border:none;cursor:pointer;
+  font-family:var(--body);font-size:12px;color:rgba(255,255,255,.42);
+  padding:6px 8px;
+}
+.parent-link:hover{color:rgba(255,255,255,.8)}
+.sheet{
+  position:absolute;inset:0;z-index:30;background:var(--paper);color:var(--ink);
+  padding:24px;overflow-y:auto;font-size:14.5px;line-height:1.5;
+}
+.sheet h2{font-family:var(--display);font-size:23px;margin:0 0 3px}
+.sheet h3{font-family:var(--display);font-size:16px;margin:22px 0 8px;color:var(--mid)}
+.sheet p{margin:0 0 10px;max-width:62ch}
+.muted{color:#4B6478}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px;margin:14px 0 4px}
+.stat{background:#fff;border:2px solid #CFE6F0;border-radius:12px;padding:11px 13px}
+.stat b{display:block;font-family:var(--display);font-size:25px;color:var(--mid);line-height:1.1}
+.stat span{font-size:12px;color:#4B6478}
+.factlist{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
+.fact{
+  font-family:var(--display);font-weight:600;font-size:14px;
+  padding:6px 11px;border-radius:9px;border:2px solid;
+}
+.fact.slow{background:#FFF3D6;border-color:#F0C14B;color:#7A5A0B}
+.fact.missed{background:#FFE2DC;border-color:#FF6B57;color:#8C2A19}
+.fact.solid{background:#DFF6E2;border-color:#6BC47E;color:#1F5B2E}
+.gate{max-width:300px}
+.gate input{
+  font-family:var(--display);font-size:24px;width:110px;padding:9px 12px;
+  border:3px solid var(--mid);border-radius:11px;text-align:center;margin-right:8px;
+}
+.sheet .btn{background:var(--mid);color:#fff;border-bottom-color:#08405F;font-size:16px;padding:11px 22px}
+.sheet .btn.ghost{background:#fff;color:var(--mid);border:2px solid #CFE6F0;border-bottom-width:3px}
+.sheet .btn.danger{background:#fff;color:#9B2C1A;border:2px solid #FFC9BE;border-bottom-width:3px}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:16px}
+
+@media(max-width:560px){
+  .gauge{width:80px}
+  .gauge-track{left:46px}
+  .tick span{width:34px;font-size:11.5px}
+  .tick i{width:14px}
+  .sub{left:26px;width:40px}
+  .depth-now{width:80px;font-size:13px}
+  .main{padding:15px 13px 20px}
+  .key{font-size:23px;padding:13px 0}
+}
+</style>
+
+<style>
+  html,body{margin:0;min-height:100%}
+  body{
+    background:#04142B;
+    font-family:'Nunito','Segoe UI',system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    padding:14px;gap:10px;
+  }
+  .page{width:100%;max-width:720px}
+  .home{
+    display:inline-block;color:rgba(255,255,255,.45);text-decoration:none;
+    font-size:13px;padding:4px 2px;
+  }
+  .home:hover,.home:focus-visible{color:rgba(255,255,255,.85)}
+  @media(max-width:560px){ body{padding:8px} }
+</style>
+</head>
+<body>
+<div class="page">
+<a class="home" href="../../">&#8592; All games</a>
+<div id="stage">
+  <div id="bubbles"></div>
+
+  <div class="wrap">
+    <div class="gauge">
+      <div class="gauge-track"></div>
+      <div id="ticks"></div>
+      <div class="sub" id="sub">
+        <svg viewBox="0 0 64 40" width="48" height="30" aria-hidden="true">
+          <ellipse cx="30" cy="22" rx="24" ry="11" fill="#FFC247"/>
+          <path d="M54 22 L63 14 L63 30 Z" fill="#E09A1F"/>
+          <rect x="25" y="6" width="12" height="9" rx="3" fill="#E09A1F"/>
+          <circle cx="20" cy="22" r="5.5" fill="#04142B"/>
+          <circle cx="20" cy="22" r="3.6" fill="#9DFF6E"/>
+          <circle cx="36" cy="22" r="3.2" fill="#04142B" opacity=".5"/>
+          <circle cx="45" cy="22" r="3.2" fill="#04142B" opacity=".5"/>
+        </svg>
+      </div>
+      <div class="depth-now" id="depthNow">0m</div>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <div class="zone-name" id="zoneName">Sunlight Zone</div>
+          <div class="zone-sub" id="zoneSub">Adding and taking away up to 10</div>
+        </div>
+        <div class="streak" id="streak">Streak 0</div>
+      </div>
+
+      <div class="problem-area">
+        <div class="prompt-label" id="promptLabel">What is</div>
+        <div class="problem" id="problem">3 + 4</div>
+        <div class="answer-slot" id="slot">?</div>
+        <div class="feedback" id="feedback"></div>
+      </div>
+
+      <div class="pad" id="pad"></div>
+    </div>
+  </div>
+
+  <button class="parent-link" id="parentLink">For grown-ups</button>
+  <div id="overlay"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- zones ---------------- */
+var ZONES = [
+  { at:0,    name:"Sunlight Zone", sub:"Adding and taking away up to 10",
+    bg:"#1B9AAA", creature:"fish", found:"A school of silver fish",
+    note:"They swim in groups so predators can't pick just one." },
+  { at:120,  name:"Twilight Zone", sub:"Adding and taking away up to 20",
+    bg:"#0F5C8C", creature:"jelly", found:"A moon jellyfish",
+    note:"It has no brain, no heart and no bones \u2014 and it still gets around fine." },
+  { at:340,  name:"Midnight Zone", sub:"Bigger numbers and counting by 5s and 10s",
+    bg:"#0A2E52", creature:"squid", found:"A humboldt squid",
+    note:"It can flash red and white to talk to other squid in the dark." },
+  { at:640,  name:"The Abyss", sub:"Two-digit adding and place value",
+    bg:"#061F3C", creature:"angler", found:"An anglerfish",
+    note:"That glowing bulb is bait. Nothing else down here makes its own light for free." },
+  { at:1000, name:"The Trench", sub:"Rows, groups and tricky mixes",
+    bg:"#04142B", creature:"isopod", found:"A giant isopod",
+    note:"It can go five years without eating. You just went five minutes without a mistake." }
+];
+
+var CREATURES = {
+ fish:'<svg viewBox="0 0 120 80" width="150" height="100"><g fill="#BFE9F2"><ellipse cx="46" cy="30" rx="20" ry="9"/><path d="M66 30 L80 22 L80 38 Z"/><circle cx="34" cy="28" r="2.6" fill="#04142B"/></g><g fill="#8FD7E6"><ellipse cx="62" cy="55" rx="16" ry="7"/><path d="M78 55 L89 49 L89 61 Z"/><circle cx="52" cy="53" r="2.2" fill="#04142B"/></g><g fill="#A8E0EC"><ellipse cx="26" cy="58" rx="13" ry="6"/><path d="M39 58 L49 53 L49 63 Z"/><circle cx="18" cy="56" r="2" fill="#04142B"/></g></svg>',
+ jelly:'<svg viewBox="0 0 120 110" width="145" height="133"><path d="M22 46a38 34 0 0 1 76 0c0 7-6 11-38 11S22 53 22 46z" fill="#C9B8FF" opacity=".92"/><circle cx="48" cy="40" r="6" fill="#fff" opacity=".55"/><circle cx="70" cy="44" r="4" fill="#fff" opacity=".4"/><g stroke="#C9B8FF" stroke-width="4" fill="none" stroke-linecap="round" opacity=".8"><path d="M36 56c-3 14 5 20 1 34"/><path d="M52 58c-2 16 4 22 1 32"/><path d="M68 58c2 16-3 22 0 32"/><path d="M84 55c4 14-4 21 0 33"/></g></svg>',
+ squid:'<svg viewBox="0 0 120 120" width="140" height="140"><path d="M60 8c14 0 22 14 22 32s-8 26-22 26-22-8-22-26S46 8 60 8z" fill="#FF8A7A"/><circle cx="50" cy="34" r="5" fill="#04142B"/><circle cx="70" cy="34" r="5" fill="#04142B"/><circle cx="51.6" cy="32.4" r="1.7" fill="#fff"/><circle cx="71.6" cy="32.4" r="1.7" fill="#fff"/><g stroke="#FF8A7A" stroke-width="6" fill="none" stroke-linecap="round"><path d="M46 66c-6 16-2 26-10 40"/><path d="M54 68c-3 18-1 26-5 42"/><path d="M66 68c3 18 1 26 5 42"/><path d="M74 66c6 16 2 26 10 40"/></g></svg>',
+ angler:'<svg viewBox="0 0 130 110" width="152" height="129"><circle cx="96" cy="22" r="9" fill="#9DFF6E" opacity=".35"/><circle cx="96" cy="22" r="5" fill="#9DFF6E"/><path d="M70 46 C76 30 88 24 94 21" stroke="#2C3F57" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="58" cy="62" rx="34" ry="26" fill="#2C3F57"/><path d="M24 62 L6 46 L6 78 Z" fill="#22334A"/><circle cx="76" cy="54" r="6" fill="#EAF7FB"/><circle cx="77" cy="54" r="3" fill="#04142B"/><path d="M86 62 q-12 14 -30 12 q10 -4 14 -12 z" fill="#EAF7FB"/><path d="M72 70 l4 7 M80 66 l3 8 M64 72 l2 7" stroke="#EAF7FB" stroke-width="2.4" stroke-linecap="round"/></svg>',
+ isopod:'<svg viewBox="0 0 120 120" width="140" height="140"><ellipse cx="60" cy="62" rx="30" ry="42" fill="#C8B79A"/><g stroke="#9C8A6E" stroke-width="3.4" stroke-linecap="round"><path d="M32 44h56"/><path d="M31 58h58"/><path d="M32 72h56"/><path d="M36 86h48"/></g><circle cx="50" cy="28" r="4.4" fill="#04142B"/><circle cx="70" cy="28" r="4.4" fill="#04142B"/><g stroke="#9C8A6E" stroke-width="4" stroke-linecap="round"><path d="M52 18 L42 6"/><path d="M68 18 L78 6"/><path d="M30 50 L14 44"/><path d="M30 66 L13 66"/><path d="M90 50 L106 44"/><path d="M90 66 L107 66"/></g></svg>'
+};
+
+/* ---------------- state ---------------- */
+var save = { maxDepth:0, totalRight:0, totalTried:0, facts:{}, sessions:0, seconds:0 };
+var depth = 0, streak = 0, best = 0, zoneIdx = 0;
+var cur = null, entry = "", locked = false, shownAt = 0;
+var sessionStart = Date.now();
+var storageOK = true;
+
+var $ = function(id){ return document.getElementById(id); };
+
+/* ---------------- storage ---------------- */
+async function load(){
+  try{
+    var r = await window.storage.get("deepdive-progress");
+    if(r && r.value){
+      var d = JSON.parse(r.value);
+      save.maxDepth  = d.maxDepth  || 0;
+      save.totalRight= d.totalRight|| 0;
+      save.totalTried= d.totalTried|| 0;
+      save.facts     = d.facts     || {};
+      save.sessions  = d.sessions  || 0;
+      save.seconds   = d.seconds   || 0;
+    }
+  }catch(e){ /* first run, or storage unavailable */ }
+  save.sessions += 1;
+  persist();
+}
+var pending = null;
+function persist(){
+  if(!storageOK) return;
+  clearTimeout(pending);
+  pending = setTimeout(async function(){
+    try{
+      save.seconds = Math.round(save.seconds);
+      await window.storage.set("deepdive-progress", JSON.stringify(save));
+    }catch(e){ storageOK = false; }
+  }, 400);
+}
+
+/* ---------------- problem generation ---------------- */
+function ri(lo,hi){ return lo + Math.floor(Math.random()*(hi-lo+1)); }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+function makeAddSub(max){
+  var t, b, a, c, i;
+  if(Math.random() < .45){
+    // subtraction; mostly avoid the giveaways (n-0 and n-n)
+    for(i = 0; i < 6; i++){
+      t = ri(Math.min(4,max), max);
+      b = ri(0, t);
+      if(b !== 0 && b !== t) break;
+      if(Math.random() < .15) break;
+    }
+    return { text: t + " \u2212 " + b, ans: t-b, key: t+"-"+b, drill:true };
+  }
+  for(i = 0; i < 6; i++){
+    a = ri(0, max-1);
+    c = ri(0, max-a);
+    if(a !== 0 && c !== 0) break;
+    if(Math.random() < .15) break;
+  }
+  return { text: a + " + " + c, ans: a+c, key: a+"+"+c, drill:true };
+}
+
+function makeMid(){
+  var kind = ri(1,4);
+  if(kind===1){
+    var a = ri(11,59), b = ri(2,9);
+    return { text: a + " + " + b, ans:a+b, key:null };
+  }
+  if(kind===2){
+    var a2 = ri(20,79), b2 = pick([10,20,30]);
+    return { text: a2 + " + " + b2, ans:a2+b2, key:null };
+  }
+  if(kind===3){
+    var step = pick([5,10]), start = step*ri(1,7);
+    return { label:"Keep counting by " + step,
+             text: start + ", " + (start+step) + ", " + (start+2*step) + ", ?",
+             ans: start+3*step, key:null };
+  }
+  var a3 = ri(25,80), b3 = ri(2,9);
+  return { text: a3 + " \u2212 " + b3, ans:a3-b3, key:null };
+}
+
+function makeAbyss(){
+  var kind = ri(1,4);
+  if(kind===1){
+    var a = ri(12,48), b = ri(11,45);
+    return { text: a + " + " + b, ans:a+b, key:null };
+  }
+  if(kind===2){
+    var h = ri(1,8), t = ri(0,9), o = ri(0,9);
+    return { label:"How many in all", text: h+" hundreds, "+t+" tens, "+o+" ones",
+             ans: h*100+t*10+o, key:null };
+  }
+  if(kind===3){
+    var n = ri(120,880);
+    return { label:"How many tens are in this number", text:String(n),
+             ans: Math.floor(n/10)%10, key:null };
+  }
+  var a2 = ri(45,99), b2 = ri(11,40);
+  return { text: a2 + " \u2212 " + b2, ans:a2-b2, key:null };
+}
+
+function makeTrench(){
+  var kind = ri(1,3);
+  if(kind===1){
+    var r = ri(2,6), c = ri(2,6);
+    return { label: r + " rows of " + c + " \u2014 how many altogether",
+             text: Array(r+1).join("\u25CF ".repeat(c).trim()+"\n").trim(),
+             ans: r*c, key:null, mono:true };
+  }
+  if(kind===2){
+    var a = ri(100,450), b = ri(100,440);
+    return { text: a + " + " + b, ans:a+b, key:null };
+  }
+  var t = ri(5,9), each = pick([5,10]);
+  return { label: t + " groups of " + each, text: each + " + " + each + " + \u2026 (" + t + " times)",
+           ans: t*each, key:null };
+}
+
+function weightedFact(max){
+  // resurface missed / slow facts about half the time
+  var weak = [];
+  for(var k in save.facts){
+    var f = save.facts[k];
+    if(f.tries >= 1 && (f.wrong > 0 || f.avg > 3400)){
+      var parts = k.indexOf("+")>0 ? k.split("+") : k.split("-");
+      var big = Math.max(+parts[0], +parts[1], k.indexOf("+")>0 ? (+parts[0])+(+parts[1]) : +parts[0]);
+      if(big <= max) weak.push(k);
+    }
+  }
+  if(weak.length && Math.random() < .5){
+    var key = pick(weak);
+    if(key.indexOf("+") > 0){
+      var p = key.split("+");
+      return { text:p[0]+" + "+p[1], ans:(+p[0])+(+p[1]), key:key, drill:true };
+    }
+    var q = key.split("-");
+    return { text:q[0]+" \u2212 "+q[1], ans:(+q[0])-(+q[1]), key:key, drill:true };
+  }
+  return makeAddSub(max);
+}
+
+function nextProblem(){
+  var z = zoneIdx;
+  if(z === 0) cur = weightedFact(10);
+  else if(z === 1) cur = weightedFact(20);
+  else if(z === 2) cur = makeMid();
+  else if(z === 3) cur = makeAbyss();
+  else cur = makeTrench();
+
+  entry = ""; locked = false;
+  $("promptLabel").textContent = cur.label || "What is";
+  var p = $("problem");
+  p.textContent = cur.text;
+  p.style.whiteSpace = cur.mono ? "pre" : "normal";
+  p.style.fontSize = cur.mono ? "26px" : "";
+  p.style.lineHeight = cur.mono ? "1.35" : "1";
+  $("slot").className = "answer-slot";
+  $("slot").textContent = "?";
+  shownAt = Date.now();
+  updateGo();
+}
+
+/* ---------------- answering ---------------- */
+function press(v){
+  if(locked) return;
+  if(v === "back"){ entry = entry.slice(0,-1); }
+  else if(v === "go"){ return submit(); }
+  else if(entry.length < 4){ entry += v; }
+  var s = $("slot");
+  s.textContent = entry === "" ? "?" : entry;
+  s.className = "answer-slot" + (entry ? " filled" : "");
+  updateGo();
+}
+function updateGo(){ $("go").disabled = (entry === ""); }
+
+function submit(){
+  if(locked || entry === "") return;
+  locked = true;
+  var ms = Date.now() - shownAt;
+  var right = (+entry === cur.ans);
+  var s = $("slot"), fb = $("feedback");
+
+  save.totalTried++;
+  if(right) save.totalRight++;
+
+  if(cur.key){
+    var f = save.facts[cur.key] || { tries:0, wrong:0, avg:0 };
+    f.tries++;
+    if(!right) f.wrong++;
+    else f.avg = f.avg ? Math.round(f.avg*0.65 + ms*0.35) : ms;
+    save.facts[cur.key] = f;
+  }
+
+  if(right){
+    streak++; if(streak > best) best = streak;
+    s.className = "answer-slot good";
+    var gain = 10 + (streak >= 5 ? 10 : 0) + (streak >= 10 ? 10 : 0);
+    var quick = cur.drill && ms < 3000;
+    fb.className = "feedback";
+    fb.textContent = quick ? "Fast! Down " + gain + "m" :
+                     (streak >= 5 ? "Streak " + streak + "! Down " + gain + "m" : "Down " + gain + "m");
+    setDepth(depth + gain);
+  } else {
+    streak = 0;
+    s.className = "answer-slot bad";
+    fb.className = "feedback miss";
+    fb.textContent = "It was " + cur.ans + ". Try the next one.";
+    setDepth(Math.max(0, depth - 5));
+  }
+
+  paintStreak();
+  persist();
+  setTimeout(function(){ fb.textContent = ""; nextProblem(); }, right ? 800 : 1750);
+}
+
+/* ---------------- depth & zones ---------------- */
+var MAXVIEW = 1300;
+function setDepth(d){
+  depth = d;
+  if(depth > save.maxDepth) save.maxDepth = depth;
+  var pct = Math.min(depth / MAXVIEW, 1);
+  var track = 26 + pct * (620 - 46 - 26);
+  $("sub").style.top = (track - 15) + "px";
+  $("depthNow").style.top = (track + 20) + "px";
+  $("depthNow").textContent = Math.round(depth) + "m";
+
+  var z = 0;
+  for(var i = 0; i < ZONES.length; i++) if(depth >= ZONES[i].at) z = i;
+  if(z !== zoneIdx){
+    var deeper = z > zoneIdx;
+    zoneIdx = z;
+    applyZone();
+    if(deeper) discovery(ZONES[z]);
+  }
+}
+function applyZone(){
+  var z = ZONES[zoneIdx];
+  $("stage").style.background = z.bg;
+  $("zoneName").textContent = z.name;
+  $("zoneSub").textContent = z.sub;
+}
+function paintStreak(){
+  var el = $("streak");
+  el.textContent = "Streak " + streak;
+  el.className = "streak" + (streak >= 5 ? " hot" : "");
+}
+
+function discovery(z){
+  locked = true;
+  var o = $("overlay");
+  o.innerHTML =
+    '<div class="discovery">' +
+      '<div class="creature">' + CREATURES[z.creature] + '</div>' +
+      '<h2>' + z.found + '</h2>' +
+      '<p>' + z.note + '</p>' +
+      '<p class="muted" style="color:rgba(255,255,255,.6);font-size:13.5px">Now entering the ' +
+        z.name + '. ' + z.sub + '.</p>' +
+      '<button class="btn" id="keepGoing">Keep diving</button>' +
+    '</div>';
+  $("keepGoing").focus();
+  $("keepGoing").onclick = function(){ o.innerHTML = ""; locked = false; nextProblem(); };
+}
+
+/* ---------------- parent sheet ---------------- */
+function parentGate(){
+  var a = ri(3,9), b = ri(3,9);
+  var o = $("overlay");
+  o.innerHTML =
+    '<div class="sheet"><div class="gate">' +
+      '<h2>Grown-ups only</h2>' +
+      '<p class="muted">Quick check so this stays your page: what is ' + a + ' \u00D7 ' + b + '?</p>' +
+      '<div class="row"><input id="gateIn" inputmode="numeric" autocomplete="off">' +
+      '<button class="btn" id="gateGo">Open</button>' +
+      '<button class="btn ghost" id="gateNo">Back</button></div>' +
+      '<p id="gateMsg" class="muted" style="margin-top:10px"></p>' +
+    '</div></div>';
+  $("gateIn").focus();
+  $("gateNo").onclick = closeSheet;
+  $("gateGo").onclick = function(){
+    if(+$("gateIn").value === a*b) parentSheet();
+    else { $("gateMsg").textContent = "Not quite \u2014 try again."; $("gateIn").value = ""; $("gateIn").focus(); }
+  };
+  $("gateIn").onkeydown = function(e){ if(e.key === "Enter") $("gateGo").click(); };
+}
+
+function closeSheet(){ $("overlay").innerHTML = ""; locked = false; nextProblem(); }
+
+function parentSheet(){
+  var slow = [], missed = [], solid = [];
+  for(var k in save.facts){
+    var f = save.facts[k];
+    var label = k.indexOf("+") > 0
+      ? k.split("+").join(" + ")
+      : k.split("-").join(" \u2212 ");
+    if(f.wrong > 0 && f.wrong / f.tries >= .25) missed.push(label);
+    else if(f.avg > 3400) slow.push(label);
+    else if(f.tries >= 2) solid.push(label);
+  }
+  var acc = save.totalTried ? Math.round(save.totalRight / save.totalTried * 100) : 0;
+  var mins = Math.round((save.seconds + (Date.now()-sessionStart)/1000) / 60);
+
+  var html =
+    '<div class="sheet">' +
+    '<h2>How he\u2019s doing</h2>' +
+    '<p class="muted">Everything here is measured while he plays \u2014 nothing is a test.</p>' +
+    '<div class="stats">' +
+      '<div class="stat"><b>' + Math.round(save.maxDepth) + 'm</b><span>Deepest dive</span></div>' +
+      '<div class="stat"><b>' + acc + '%</b><span>Correct</span></div>' +
+      '<div class="stat"><b>' + save.totalTried + '</b><span>Problems tried</span></div>' +
+      '<div class="stat"><b>' + mins + '</b><span>Minutes played</span></div>' +
+    '</div>';
+
+  html += '<h3>Facts to work on</h3>';
+  if(!missed.length && !slow.length){
+    html += '<p class="muted">' + (save.totalTried < 12
+      ? 'Not enough plays yet. After a few dives this fills in with the specific facts he hesitates on.'
+      : 'Nothing is lagging right now. Everything he\u2019s hit is both accurate and quick.') + '</p>';
+  } else {
+    if(missed.length){
+      html += '<p>Getting these wrong:</p><div class="factlist">' +
+        missed.map(function(x){ return '<span class="fact missed">' + x + '</span>'; }).join("") + '</div>';
+    }
+    if(slow.length){
+      html += '<p>Correct, but slow \u2014 he\u2019s still counting these out rather than recalling them:</p>' +
+        '<div class="factlist">' +
+        slow.map(function(x){ return '<span class="fact slow">' + x + '</span>'; }).join("") + '</div>';
+    }
+    html += '<p class="muted">Slow is the more useful signal. A fact that takes him more than about three seconds ' +
+            'isn\u2019t automatic yet, and those are the ones that make two-digit work feel hard later. ' +
+            'The game already feeds these back to him more often.</p>';
+  }
+
+  if(solid.length){
+    html += '<h3>Locked in</h3><div class="factlist">' +
+      solid.slice(0,24).map(function(x){ return '<span class="fact solid">' + x + '</span>'; }).join("") + '</div>';
+  }
+
+  html +=
+    '<h3>What the depths mean</h3>' +
+    '<p>0\u2013120m is adding and subtracting within 10. 120\u2013340m moves to within 20 \u2014 that\u2019s the ' +
+    'end-of-1st-grade benchmark and the one that matters most this year. 340\u2013640m brings in two-digit ' +
+    'numbers and skip counting, 640\u20131000m is place value to 1,000, and past 1,000m he\u2019s working with ' +
+    'rows and groups, which is how multiplication starts.</p>' +
+    '<p class="muted">If he parks comfortably around 300\u2013400m, he\u2019s right where a 2nd grader should be ' +
+    'in September. Deeper than that is genuinely ahead.</p>';
+
+  if(!storageOK){
+    html += '<p class="muted">Note: progress isn\u2019t saving in this window, so these numbers cover today only.</p>';
+  }
+
+  html +=
+    '<div class="row">' +
+      '<button class="btn" id="sheetClose">Back to the dive</button>' +
+      '<button class="btn danger" id="sheetReset">Erase all progress</button>' +
+    '</div></div>';
+
+  $("overlay").innerHTML = html;
+  $("sheetClose").onclick = closeSheet;
+  $("sheetReset").onclick = async function(){
+    if(!confirm("Erase his saved progress and start over?")) return;
+    save = { maxDepth:0, totalRight:0, totalTried:0, facts:{}, sessions:1, seconds:0 };
+    try{ await window.storage.delete("deepdive-progress"); }catch(e){}
+    depth = 0; streak = 0; zoneIdx = 0;
+    applyZone(); setDepth(0); paintStreak(); closeSheet();
+  };
+}
+
+/* ---------------- build UI ---------------- */
+function buildTicks(){
+  var html = "";
+  for(var d = 0; d <= 1300; d += 50){
+    var pct = d / MAXVIEW;
+    var top = 26 + pct * (620 - 46 - 26);
+    var major = (d % 200 === 0);
+    html += '<div class="tick' + (major ? ' major' : '') + '" style="top:' + top + 'px">' +
+            '<span>' + (major ? d + 'm' : '') + '</span><i></i></div>';
+  }
+  $("ticks").innerHTML = html;
+}
+
+function buildPad(){
+  var keys = ["1","2","3","4","5","6","7","8","9","back","0","go"];
+  var html = "";
+  keys.forEach(function(k){
+    if(k === "back") html += '<button class="key util" data-k="back" aria-label="Delete">\u232B</button>';
+    else if(k === "go") html += '<button class="key go" id="go" data-k="go">Dive</button>';
+    else html += '<button class="key" data-k="' + k + '">' + k + '</button>';
+  });
+  $("pad").innerHTML = html;
+  $("pad").addEventListener("click", function(e){
+    var b = e.target.closest("[data-k]");
+    if(b) press(b.dataset.k);
+  });
+}
+
+function buildBubbles(){
+  var html = "";
+  for(var i = 0; i < 14; i++){
+    var size = 4 + Math.random()*12;
+    html += '<div class="bubble" style="left:' + (8 + Math.random()*90) + '%;width:' + size +
+            'px;height:' + size + 'px;animation-duration:' + (9 + Math.random()*11) +
+            's;animation-delay:' + (Math.random()*12) + 's"></div>';
+  }
+  $("bubbles").innerHTML = html;
+}
+
+document.addEventListener("keydown", function(e){
+  if($("overlay").innerHTML !== "") return;
+  if(e.key >= "0" && e.key <= "9") press(e.key);
+  else if(e.key === "Backspace"){ e.preventDefault(); press("back"); }
+  else if(e.key === "Enter") press("go");
+});
+
+window.addEventListener("beforeunload", function(){
+  save.seconds += (Date.now() - sessionStart)/1000;
+});
+setInterval(function(){
+  save.seconds += 20; sessionStart = Date.now(); persist();
+}, 20000);
+
+$("parentLink").onclick = function(){ locked = true; parentGate(); };
+
+buildTicks(); buildPad(); buildBubbles();
+applyZone(); setDepth(0); paintStreak();
+load().then(nextProblem);
+
+})();
+</script>
+</div>
+</body>
+</html>

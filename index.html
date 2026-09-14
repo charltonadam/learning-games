@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Games</title>
+<meta name="description" content="A small collection of learning games.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127917;</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root{
+  --display:'Fredoka','Trebuchet MS',Verdana,sans-serif;
+  --body:'Nunito','Segoe UI',system-ui,sans-serif;
+  --ink:#16323F;
+  --muted:#5A7585;
+  --paper:#F3F8FB;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+html,body{margin:0;min-height:100%}
+body{
+  font-family:var(--body);
+  color:var(--ink);
+  background:
+    radial-gradient(1100px 620px at 50% -180px, #DCEEF7 0%, var(--paper) 62%);
+  padding:clamp(20px,5vw,56px) clamp(16px,4vw,32px) 48px;
+}
+
+.shell{max-width:940px;margin:0 auto}
+
+header{text-align:center;margin-bottom:clamp(24px,5vw,40px)}
+h1{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(34px,8vw,54px);line-height:1.05;
+  margin:0 0 10px;letter-spacing:.2px;
+}
+header p{
+  margin:0 auto;max-width:44ch;
+  font-size:clamp(15px,2.4vw,17px);line-height:1.55;color:var(--muted);
+}
+
+.games{
+  display:grid;gap:clamp(16px,3vw,24px);
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  list-style:none;padding:0;margin:0;
+}
+
+.card{
+  display:flex;flex-direction:column;
+  text-decoration:none;color:inherit;
+  border-radius:22px;overflow:hidden;
+  background:#fff;
+  border:2px solid rgba(22,50,63,.10);
+  box-shadow:0 10px 26px rgba(22,50,63,.10);
+  transition:transform 140ms ease, box-shadow 140ms ease;
+  height:100%;
+}
+.card:hover,.card:focus-visible{
+  transform:translateY(-4px);
+  box-shadow:0 16px 34px rgba(22,50,63,.17);
+}
+.card:focus-visible{outline:4px solid #FFC247;outline-offset:3px}
+.card:active{transform:translateY(-1px)}
+
+.art{
+  position:relative;
+  aspect-ratio:16/9;
+  display:flex;align-items:center;justify-content:center;
+}
+.art svg{width:100%;height:100%;display:block}
+
+.card-body{padding:18px 20px 22px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h2{
+  font-family:var(--display);font-weight:600;
+  font-size:26px;margin:0;line-height:1.15;
+}
+.card p{margin:0;font-size:15px;line-height:1.55;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding-top:12px}
+.tag{
+  font-size:12.5px;font-weight:700;letter-spacing:.2px;
+  padding:5px 11px;border-radius:999px;
+  background:rgba(22,50,63,.06);color:#3F5C6B;
+}
+.go{
+  font-family:var(--display);font-weight:600;font-size:16px;
+  display:inline-flex;align-items:center;gap:7px;
+  margin-top:4px;
+}
+.go svg{width:16px;height:16px;flex:none}
+
+/* per-game accents */
+.dive .art{background:linear-gradient(#1B9AAA 0%, #0F5C8C 52%, #0A2E52 100%)}
+.dive .go{color:#0F5C8C}
+.dive .tag{background:#E2F2F6;color:#0F5C8C}
+
+.train .art{background:linear-gradient(#7FC5E3 0%, #B7E1F0 62%, #E8C06A 62%, #CFA34E 100%)}
+.train .go{color:#2E7D5B}
+.train .tag{background:#E4F1EA;color:#2E7D5B}
+
+footer{
+  margin-top:clamp(28px,5vw,44px);text-align:center;
+  font-size:13.5px;line-height:1.6;color:var(--muted);
+}
+footer p{margin:0 auto;max-width:52ch}
+
+@media (prefers-reduced-motion:reduce){
+  .card{transition:none}
+  .card:hover,.card:focus-visible{transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <h1>Learning Games</h1>
+    <p>Pick a game. Each one keeps track of how it&rsquo;s going, and has a
+       &ldquo;grown-ups&rdquo; panel behind a little math gate.</p>
+  </header>
+
+  <ul class="games">
+
+    <li>
+      <a class="card dive" href="games/deep-dive-math/">
+        <div class="art">
+          <svg viewBox="0 0 320 180" role="img" aria-label="A little submarine diving past bubbles">
+            <circle cx="46" cy="140" r="7" fill="rgba(255,255,255,.14)"/>
+            <circle cx="70" cy="96" r="4" fill="rgba(255,255,255,.18)"/>
+            <circle cx="262" cy="126" r="9" fill="rgba(255,255,255,.12)"/>
+            <circle cx="286" cy="70" r="5" fill="rgba(255,255,255,.16)"/>
+            <circle cx="120" cy="40" r="3.5" fill="rgba(255,255,255,.2)"/>
+            <g transform="translate(160 92)">
+              <path d="M-70 0 A70 34 0 0 1 70 0 A70 34 0 0 1 -70 0 Z" fill="#FFC247"/>
+              <path d="M-70 0 A70 34 0 0 0 70 0 Z" fill="#E09A1F"/>
+              <rect x="-16" y="-48" width="32" height="20" rx="7" fill="#FFC247"/>
+              <rect x="-3" y="-62" width="6" height="16" rx="3" fill="#E09A1F"/>
+              <circle cx="44" cy="-2" r="13" fill="#04142B" opacity=".55"/>
+              <circle cx="44" cy="-2" r="9" fill="#9DFF6E"/>
+              <circle cx="6" cy="-2" r="9" fill="#04142B" opacity=".4"/>
+              <circle cx="-26" cy="-2" r="9" fill="#04142B" opacity=".4"/>
+              <path d="M-70 -6 L-92 -22 L-92 18 L-70 6 Z" fill="#E09A1F"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h2>Deep Dive Math</h2>
+          <p>Every answer takes the submarine deeper. The math gets harder as the
+             water gets darker, and there&rsquo;s a creature waiting in each zone.</p>
+          <span class="go">Dive in
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h10M8 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="tags">
+            <span class="tag">Adding &amp; subtracting</span>
+            <span class="tag">Place value</span>
+          </div>
+        </div>
+      </a>
+    </li>
+
+    <li>
+      <a class="card train" href="games/letter-train/">
+        <div class="art">
+          <svg viewBox="0 0 320 180" role="img" aria-label="A green train engine pulling lettered cars">
+            <circle cx="66" cy="38" r="15" fill="rgba(255,255,255,.55)"/>
+            <circle cx="84" cy="38" r="19" fill="rgba(255,255,255,.55)"/>
+            <circle cx="104" cy="40" r="13" fill="rgba(255,255,255,.55)"/>
+            <rect x="0" y="126" width="320" height="6" fill="#6B4A33"/>
+            <g>
+              <rect x="196" y="74" width="92" height="46" rx="8" fill="#2E7D5B"/>
+              <rect x="196" y="56" width="40" height="22" rx="6" fill="#26694C"/>
+              <rect x="266" y="44" width="16" height="16" rx="4" fill="#26694C"/>
+              <circle cx="216" cy="126" r="13" fill="#3A2218"/>
+              <circle cx="216" cy="126" r="5" fill="#FBF3E2"/>
+              <circle cx="266" cy="126" r="13" fill="#3A2218"/>
+              <circle cx="266" cy="126" r="5" fill="#FBF3E2"/>
+            </g>
+            <g>
+              <rect x="112" y="82" width="72" height="38" rx="8" fill="#D6402E"/>
+              <text x="148" y="110" text-anchor="middle" font-family="Fredoka, Verdana, sans-serif" font-size="27" font-weight="700" fill="#FBF3E2">A</text>
+              <circle cx="130" cy="126" r="11" fill="#3A2218"/>
+              <circle cx="166" cy="126" r="11" fill="#3A2218"/>
+            </g>
+            <g>
+              <rect x="28" y="82" width="72" height="38" rx="8" fill="#FBF3E2"/>
+              <text x="64" y="110" text-anchor="middle" font-family="Fredoka, Verdana, sans-serif" font-size="27" font-weight="700" fill="#3A2218">B</text>
+              <circle cx="46" cy="126" r="11" fill="#3A2218"/>
+              <circle cx="82" cy="126" r="11" fill="#3A2218"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h2>Letter Train</h2>
+          <p>Load the right letter into the train. It starts with the letters in
+             his own name and adds new ones as those get easy.</p>
+          <span class="go">All aboard
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h10M8 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="tags">
+            <span class="tag">Letter recognition</span>
+            <span class="tag">Letter names</span>
+          </div>
+        </div>
+      </a>
+    </li>
+
+  </ul>
+
+  <footer>
+    <p>Progress is saved in this browser on this device, so each child should
+       stick to their own tablet or laptop.</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

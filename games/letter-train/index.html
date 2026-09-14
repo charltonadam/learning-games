@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Letter Train</title>
+<meta name="description" content="Letter recognition that starts with the letters in his own name.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128642;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<style>
+  :root{
+    --sky:#7FC5E3;
+    --sky-deep:#4FA3CB;
+    --wheat:#E8C06A;
+    --wheat-deep:#CFA34E;
+    --signal:#D6402E;
+    --engine:#2E7D5B;
+    --ink:#3A2218;
+    --cream:#FBF3E2;
+    --rail:#6B4A33;
+    --font: 'Avenir Next', 'Futura', 'Trebuchet MS', Verdana, sans-serif;
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--sky-deep);
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+
+  #app{
+    position:relative;
+    height:100dvh;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    background:
+      linear-gradient(var(--sky) 0%, #B7E1F0 62%, #B7E1F0 62%, var(--wheat) 62%, var(--wheat-deep) 100%);
+  }
+
+  /* ---------- shared bits ---------- */
+  .btn{
+    font-family:var(--font);
+    font-size:1.05rem;
+    font-weight:600;
+    color:var(--cream);
+    background:var(--engine);
+    border:none;
+    border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;
+    padding:.8em 1.4em;
+    cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px); border-bottom-width:2px;}
+  .btn.quiet{
+    background:transparent;color:var(--ink);border:2px solid rgba(58,34,24,.35);
+    border-bottom-width:2px;font-weight:600;
+  }
+  .btn:focus-visible, .car:focus-visible, .toggle:focus-visible{
+    outline:4px solid #fff; outline-offset:3px;
+  }
+
+  /* ---------- setup ---------- */
+  #setup{
+    position:absolute;inset:0;z-index:30;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1.1rem;padding:1.5rem;text-align:center;
+    background:
+      linear-gradient(var(--sky) 0%, #B7E1F0 66%, var(--wheat) 66%, var(--wheat-deep) 100%);
+  }
+  #setup h1{
+    font-size:clamp(2.1rem,7vw,3.4rem);
+    margin:0;letter-spacing:.02em;color:var(--ink);
+  }
+  #setup p{margin:0;max-width:34ch;line-height:1.5;font-size:1rem;}
+  #nameInput{
+    font-family:var(--font);font-size:1.5rem;font-weight:700;
+    text-align:center;text-transform:uppercase;letter-spacing:.12em;
+    padding:.6em 1em;width:min(340px,80vw);
+    border:3px solid var(--ink);border-radius:14px;
+    background:var(--cream);color:var(--ink);
+  }
+  #nameTrain{
+    display:flex;align-items:flex-end;gap:6px;
+    min-height:96px;overflow-x:auto;max-width:96vw;padding:4px;
+    scrollbar-width:none;
+  }
+  #nameTrain::-webkit-scrollbar{display:none;}
+
+  /* ---------- top bar ---------- */
+  #bar{
+    position:relative;z-index:5;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:.6rem .8rem;gap:.6rem;
+  }
+  #homeLink{
+    background:rgba(255,255,255,.6);border:2px solid rgba(58,34,24,.3);
+    color:var(--ink);border-radius:12px;padding:.45em .8em;
+    font-family:var(--font);font-size:.85rem;font-weight:600;
+    text-decoration:none;white-space:nowrap;
+  }
+  #grownups{
+    background:rgba(255,255,255,.6);border:2px solid rgba(58,34,24,.3);
+    color:var(--ink);border-radius:12px;padding:.45em .8em;
+    font-family:var(--font);font-size:.85rem;font-weight:600;cursor:pointer;
+  }
+  #cargoStrip{display:flex;align-items:center;gap:4px;min-height:34px;}
+  #adultHint{
+    font-size:.8rem;font-weight:700;color:rgba(58,34,24,.32);
+    letter-spacing:.08em;padding-left:.5rem;
+  }
+
+  /* ---------- prompt ---------- */
+  #prompt{
+    z-index:5;
+    margin:0 auto;
+    background:var(--cream);
+    border:3px solid var(--ink);
+    border-radius:18px;
+    padding:.55em 1.2em;
+    font-size:clamp(1.25rem,4.6vw,1.9rem);
+    font-weight:700;
+    display:flex;align-items:center;gap:.6rem;
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(58,34,24,.28);
+  }
+  #prompt .target{
+    font-size:1.45em;line-height:1;color:var(--signal);
+  }
+  #speaker{width:1.1em;height:1.1em;flex:none;opacity:.65;}
+  #prompt.listening #promptLetter{display:none;}
+  #prompt.listening #speaker{opacity:1;color:var(--signal);width:1.5em;height:1.5em;}
+
+  /* ---------- cars ---------- */
+  #yard{
+    flex:1;
+    display:flex;align-items:center;justify-content:center;
+    gap:clamp(10px,3vw,28px);
+    padding:.5rem clamp(8px,3vw,24px);
+    flex-wrap:wrap;
+  }
+  .car{
+    background:none;border:none;padding:0;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;
+    transition:transform .18s ease;
+  }
+  .car .body{
+    width:clamp(96px,23vw,168px);
+    height:clamp(96px,23vw,168px);
+    border-radius:16px 16px 8px 8px;
+    border:4px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+    box-shadow:inset 0 -10px 0 rgba(0,0,0,.14);
+  }
+  .car .body::after{
+    content:"";position:absolute;left:12%;right:12%;top:10%;bottom:10%;
+    border-radius:8px;background:var(--cream);
+    box-shadow:inset 0 0 0 3px rgba(58,34,24,.25);
+  }
+  .car .glyph{
+    position:relative;z-index:2;
+    font-size:clamp(3.2rem,11vw,5.6rem);
+    font-weight:700;line-height:1;color:var(--ink);
+    user-select:none;
+  }
+  .car .wheels{
+    display:flex;gap:clamp(26px,7vw,56px);margin-top:-6px;
+  }
+  .car .wheels i{
+    width:clamp(22px,5.5vw,34px);height:clamp(22px,5.5vw,34px);
+    border-radius:50%;background:var(--ink);
+    box-shadow:inset 0 0 0 4px var(--cream), inset 0 0 0 6px var(--ink);
+    display:block;
+  }
+  .car.nudge{animation:nudge .45s ease;}
+  .car.hint .body{animation:hint 1s ease infinite;}
+  .car.leaving{animation:leave .5s cubic-bezier(.4,0,.2,1) forwards;}
+  .car.fading{opacity:0;transform:scale(.9);transition:opacity .3s, transform .3s;}
+
+  @keyframes nudge{
+    0%,100%{transform:translateX(0) rotate(0);}
+    25%{transform:translateX(-9px) rotate(-3deg);}
+    60%{transform:translateX(9px) rotate(3deg);}
+  }
+  @keyframes hint{
+    0%,100%{box-shadow:inset 0 -10px 0 rgba(0,0,0,.14), 0 0 0 0 rgba(255,255,255,.9);}
+    50%{box-shadow:inset 0 -10px 0 rgba(0,0,0,.14), 0 0 0 12px rgba(255,255,255,.55);}
+  }
+  @keyframes leave{
+    to{transform:translate(-46vw,-14vh) scale(.42); opacity:0;}
+  }
+
+  /* ---------- track ---------- */
+  #track{position:relative;height:clamp(104px,20vh,168px);flex:none;}
+  #rail{
+    position:absolute;left:0;right:0;top:52%;height:10px;background:var(--rail);
+    border-top:3px solid rgba(255,255,255,.35);
+  }
+  #ties{
+    position:absolute;left:0;right:0;top:calc(52% + 10px);height:14px;
+    background:repeating-linear-gradient(90deg, var(--rail) 0 16px, transparent 16px 46px);
+    opacity:.65;
+  }
+  #train{
+    position:absolute;left:14px;bottom:18px;
+    display:flex;align-items:flex-end;gap:5px;
+    transition:transform .45s cubic-bezier(.34,1.3,.64,1);
+  }
+  #train.departing{
+    transition:transform 2.2s cubic-bezier(.5,0,.9,.4);
+    transform:translateX(-140vw);
+  }
+  #engine{width:clamp(104px,24vw,150px);height:auto;filter:drop-shadow(0 3px 0 rgba(0,0,0,.2));}
+  .minicar{
+    width:clamp(40px,9vw,58px);
+    display:flex;flex-direction:column;align-items:center;
+    animation:couple .4s ease;
+  }
+  .minicar .mbody{
+    width:100%;aspect-ratio:1/.86;border-radius:7px 7px 3px 3px;
+    border:3px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:clamp(1.1rem,3.4vw,1.7rem);
+    color:var(--ink);
+  }
+  .minicar .mwheels{display:flex;gap:clamp(12px,3vw,20px);margin-top:-3px;}
+  .minicar .mwheels i{
+    width:11px;height:11px;border-radius:50%;background:var(--ink);
+    box-shadow:inset 0 0 0 2px var(--cream);
+  }
+  @keyframes couple{from{transform:translateX(40px) scale(.8);opacity:0;} to{transform:none;opacity:1;}}
+
+  .smoke{animation:puff 2.4s linear infinite;transform-origin:center;}
+  .smoke:nth-of-type(2){animation-delay:.8s;}
+  .smoke:nth-of-type(3){animation-delay:1.6s;}
+  @keyframes puff{
+    0%{opacity:0;transform:translate(0,0) scale(.4);}
+    25%{opacity:.85;}
+    100%{opacity:0;transform:translate(-26px,-40px) scale(1.5);}
+  }
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:absolute;left:50%;top:14%;transform:translateX(-50%) scale(.9);
+    background:var(--cream);border:3px solid var(--ink);border-radius:16px;
+    padding:.6em 1.2em;font-weight:700;font-size:1.05rem;
+    opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
+    z-index:20;text-align:center;box-shadow:0 5px 0 rgba(58,34,24,.28);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) scale(1);}
+
+  /* ---------- grown-ups panel ---------- */
+  #panel{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(58,34,24,.55);
+    padding:1rem;overflow:auto;
+  }
+  #panel.open{display:block;}
+  #panelCard{
+    background:var(--cream);border:3px solid var(--ink);border-radius:18px;
+    max-width:640px;margin:0 auto;padding:1.2rem;
+  }
+  #panelCard h2{margin:.1rem 0 .4rem;font-size:1.4rem;}
+  #panelCard h3{margin:1.3rem 0 .5rem;font-size:1rem;font-weight:700;}
+  #panelCard p{margin:.3rem 0;font-size:.9rem;line-height:1.5;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px;}
+  .toggle{
+    font-family:var(--font);font-weight:700;font-size:1.25rem;
+    padding:.45em 0;border-radius:10px;cursor:pointer;
+    border:3px solid rgba(58,34,24,.3);background:#fff;color:rgba(58,34,24,.45);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  .toggle.on{background:var(--engine);color:var(--cream);border-color:var(--ink);}
+  .toggle.mastered{background:var(--wheat);color:var(--ink);border-color:var(--ink);}
+  .toggle small{font-size:.55rem;font-weight:600;letter-spacing:.04em;opacity:.85;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.6rem 0;font-size:.95rem;}
+  .seg{display:flex;gap:6px;}
+  .seg button{
+    font-family:var(--font);font-weight:700;font-size:.9rem;
+    border:2px solid rgba(58,34,24,.35);background:#fff;color:var(--ink);
+    border-radius:10px;padding:.4em .8em;cursor:pointer;
+  }
+  .seg button.on{background:var(--ink);color:var(--cream);}
+  #panelActions{display:flex;gap:.6rem;margin-top:1.3rem;flex-wrap:wrap;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a id="homeLink" href="../../">&#8592; Games</a>
+    <button id="grownups">Grown-ups</button>
+    <span id="adultHint" aria-hidden="true"></span>
+    <div id="cargoStrip" style="margin-left:auto"></div>
+  </div>
+
+  <div id="prompt" role="button" tabindex="0" aria-live="polite">
+    <svg id="speaker" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4 4 0 0 0-2-3.5v7a4 4 0 0 0 2-3.5zM14.5 3.2v2.1A6.8 6.8 0 0 1 14.5 20.8v2.1a8.8 8.8 0 0 0 0-19.7z"/>
+    </svg>
+    <span id="promptText">Find the letter</span>
+    <span class="target" id="promptLetter">A</span>
+  </div>
+
+  <div id="yard"></div>
+
+  <div id="track">
+    <div id="rail"></div>
+    <div id="ties"></div>
+    <div id="train"></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- ===== setup ===== -->
+  <div id="setup">
+    <h1>Letter Train</h1>
+    <p>Type your child's name. Those letters go in the train first — they're the ones he already knows.</p>
+    <input id="nameInput" maxlength="12" autocomplete="off" spellcheck="false" placeholder="NAME" aria-label="Child's name">
+    <div id="nameTrain"></div>
+    <button class="btn" id="startBtn">Start the train</button>
+  </div>
+
+  <!-- ===== grown-ups ===== -->
+  <div id="panel" aria-hidden="true">
+    <div id="panelCard">
+      <h2>Grown-ups</h2>
+      <p>Tap a letter to switch it on or off. Green letters are in play. Gold letters he's got three in a row — they stay in as distractors.</p>
+      <div class="grid" id="letterGrid"></div>
+
+      <h3>How it runs</h3>
+      <div class="row">
+        <span>Cars to choose from</span>
+        <div class="seg" id="choiceSeg">
+          <button data-c="auto">Auto</button>
+          <button data-c="2">2</button>
+          <button data-c="3">3</button>
+          <button data-c="4">4</button>
+        </div>
+      </div>
+      <div class="row">
+        <span>Show the letter in the prompt<br><small style="opacity:.7">Off means he has to recall it, not match it</small></span>
+        <div class="seg" id="targetSeg">
+          <button data-t="1">Show</button>
+          <button data-t="0">Hide</button>
+        </div>
+      </div>
+      <div class="row">
+        <span>Say the letter out loud</span>
+        <div class="seg" id="soundSeg">
+          <button data-s="1">On</button>
+          <button data-s="0">Off</button>
+        </div>
+      </div>
+      <div class="row">
+        <span>Add a new letter when one is learned</span>
+        <div class="seg" id="autoSeg">
+          <button data-a="1">On</button>
+          <button data-a="0">Off</button>
+        </div>
+      </div>
+
+      <h3>Where he's at</h3>
+      <p id="statsLine">No rounds yet.</p>
+
+      <div id="panelActions">
+        <button class="btn" id="closePanel">Back to the train</button>
+        <button class="btn quiet" id="resetBtn">Start over</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  // Letters that look alike. Kept apart on easy rounds, put together on hard ones.
+  const LOOKALIKES = [
+    ["B","D","P","R"], ["M","W"], ["E","F"], ["O","Q"], ["C","G"],
+    ["U","V","Y"], ["N","Z"], ["I","L","T"], ["K","X"], ["S","Z"], ["G","J"]
+  ];
+
+  // Rough order of introduction: distinct shapes and common letters first.
+  const INTRO_ORDER = "OXSTAMEHICBNRPDFLGJKUQVWYZ".split("");
+
+  const CAR_COLORS = ["#D6402E","#E8A33D","#3E7CB1","#8A6BA8","#4FA36B","#D98BA0"];
+
+  const $ = s => document.querySelector(s);
+  const yard = $("#yard"), train = $("#train"), toast = $("#toast");
+
+  /* ---------------- storage (falls back to memory) ---------------- */
+  const store = {
+    mem:{},
+    async get(k){
+      try { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
+      catch(e){ return k in this.mem ? this.mem[k] : null; }
+    },
+    async set(k,v){
+      this.mem[k] = v;
+      try { await window.storage.set(k, JSON.stringify(v)); } catch(e){}
+    }
+  };
+
+  /* ---------------- state ---------------- */
+  let S = null;
+
+  function freshState(name){
+    const letters = {};
+    ALPHABET.forEach(L => letters[L] = {active:false, streak:0, right:0, wrong:0, mastered:false});
+    const seed = (name||"").toUpperCase().replace(/[^A-Z]/g,"").split("");
+    const uniq = [...new Set(seed)];
+    uniq.forEach(L => letters[L].active = true);
+    // Always at least three letters in play.
+    for (const L of INTRO_ORDER){
+      if (Object.values(letters).filter(x=>x.active).length >= Math.max(3, uniq.length+1)) break;
+      letters[L].active = true;
+    }
+    return {
+      name: (name||"").trim(),
+      letters,
+      choiceMode: "auto",
+      showTarget: true,
+      sound: true,
+      autoIntroduce: true,
+      totalRight: 0,
+      totalWrong: 0,
+      cargo: [],
+      target: null,
+      options: [],
+      missesThisRound: 0,
+      locked: false
+    };
+  }
+
+  const save = () => store.set("lettertrain:v1", S);
+
+  /* ---------------- speech ---------------- */
+  let voice = null;
+  function pickVoice(){
+    try{
+      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+      voice = vs.find(v => /female|samantha|karen|moira|zira/i.test(v.name)) || vs[0] || null;
+    }catch(e){}
+  }
+  try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
+
+  function say(text, rate){
+    if (!S || !S.sound) return;
+    try{
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = rate || 0.88;
+      u.pitch = 1.1;
+      if (voice) u.voice = voice;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  // Letter names read more reliably with a trailing period.
+  const sayLetter = L => say(L + ".", 0.75);
+
+  /* ---------------- sounds (WebAudio, no files) ---------------- */
+  let actx = null;
+  function audio(){
+    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+    catch(e){ return null; }
+  }
+  function tone(freq, dur, when, type, vol){
+    const a = audio(); if(!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type||"triangle"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, a.currentTime+when);
+    g.gain.exponentialRampToValueAtTime(vol||0.18, a.currentTime+when+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+when+dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(a.currentTime+when); o.stop(a.currentTime+when+dur+0.05);
+  }
+  const chime  = () => { tone(523,0.16,0); tone(659,0.16,0.12); tone(784,0.3,0.24); };
+  const whistle= () => { tone(392,0.5,0,"sawtooth",0.12); tone(587,0.7,0.08,"sawtooth",0.12); };
+  const clunk  = () => tone(180,0.12,0,"square",0.1);
+
+  /* ---------------- helpers ---------------- */
+  const activeLetters   = () => ALPHABET.filter(L => S.letters[L].active);
+  const learningLetters = () => activeLetters().filter(L => !S.letters[L].mastered);
+
+  function lookalikesOf(L){
+    const out = new Set();
+    LOOKALIKES.forEach(g => { if (g.includes(L)) g.forEach(x => { if (x!==L) out.add(x); }); });
+    return out;
+  }
+
+  function choiceCount(){
+    if (S.choiceMode !== "auto") return parseInt(S.choiceMode,10);
+    if (S.totalRight < 6) return 2;
+    if (S.totalRight < 16) return 3;
+    return 4;
+  }
+
+  function pickTarget(){
+    const learning = learningLetters();
+    const pool = learning.length ? learning : activeLetters();
+    // Weight toward letters he has not nailed yet, and avoid an instant repeat.
+    const bag = [];
+    pool.forEach(L => {
+      const d = S.letters[L];
+      let w = d.mastered ? 1 : (4 - Math.min(d.streak,3));
+      if (L === S.target && pool.length > 1) w = 0;
+      for (let i=0;i<w;i++) bag.push(L);
+    });
+    return bag.length ? bag[Math.floor(Math.random()*bag.length)] : pool[0];
+  }
+
+  function pickOptions(target, n){
+    const others = activeLetters().filter(L => L !== target);
+    const confusing = lookalikesOf(target);
+    const easy = others.filter(L => !confusing.has(L));
+    const hard = others.filter(L => confusing.has(L));
+    // Hold back the tricky lookalikes until 4-car rounds.
+    let source = (n >= 4 && hard.length) ? shuffle(hard).slice(0,1).concat(shuffle(easy)) : shuffle(easy.length ? easy : others);
+    if (!source.length) source = shuffle(ALPHABET.filter(L => L !== target));
+    const picks = [];
+    for (const L of source){ if (picks.length >= n-1) break; picks.push(L); }
+    while (picks.length < n-1){
+      const L = ALPHABET[Math.floor(Math.random()*26)];
+      if (L !== target && !picks.includes(L)) picks.push(L);
+    }
+    return shuffle(picks.concat(target));
+  }
+
+  function shuffle(a){
+    const x = a.slice();
+    for (let i=x.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [x[i],x[j]]=[x[j],x[i]]; }
+    return x;
+  }
+
+  function showToast(msg, ms){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.classList.remove("show"), ms||2200);
+  }
+
+  /* ---------------- drawing ---------------- */
+  const ENGINE_SVG = `
+  <svg id="engine" viewBox="0 0 160 112" xmlns="http://www.w3.org/2000/svg" aria-label="Locomotive">
+    <circle class="smoke" cx="40" cy="22" r="7" fill="#ffffff" opacity="0"/>
+    <circle class="smoke" cx="40" cy="22" r="6" fill="#ffffff" opacity="0"/>
+    <circle class="smoke" cx="40" cy="22" r="8" fill="#ffffff" opacity="0"/>
+    <rect x="30" y="24" width="20" height="24" rx="3" fill="#3A2218"/>
+    <rect x="26" y="20" width="28" height="9" rx="4" fill="#3A2218"/>
+    <rect x="18" y="44" width="86" height="34" rx="17" fill="#2E7D5B" stroke="#3A2218" stroke-width="4"/>
+    <circle cx="24" cy="61" r="8" fill="#E8C06A" stroke="#3A2218" stroke-width="3"/>
+    <rect x="96" y="20" width="48" height="58" rx="7" fill="#2E7D5B" stroke="#3A2218" stroke-width="4"/>
+    <rect x="106" y="31" width="28" height="22" rx="4" fill="#FBF3E2" stroke="#3A2218" stroke-width="3"/>
+    <rect x="10" y="76" width="140" height="11" rx="4" fill="#3A2218"/>
+    <circle cx="122" cy="95" r="15" fill="#3A2218"/><circle cx="122" cy="95" r="7" fill="#FBF3E2"/>
+    <circle cx="52" cy="98" r="11" fill="#3A2218"/><circle cx="52" cy="98" r="5" fill="#FBF3E2"/>
+    <circle cx="84" cy="98" r="11" fill="#3A2218"/><circle cx="84" cy="98" r="5" fill="#FBF3E2"/>
+  </svg>`;
+
+  function carEl(letter, idx){
+    const b = document.createElement("button");
+    b.className = "car";
+    b.type = "button";
+    b.dataset.letter = letter;
+    b.setAttribute("aria-label", "Letter " + letter);
+    b.innerHTML =
+      `<div class="body" style="background:${CAR_COLORS[idx % CAR_COLORS.length]}">
+         <span class="glyph">${letter}</span>
+       </div>
+       <div class="wheels"><i></i><i></i></div>`;
+    return b;
+  }
+
+  function miniCar(letter, idx){
+    const d = document.createElement("div");
+    d.className = "minicar";
+    d.innerHTML =
+      `<div class="mbody" style="background:${CAR_COLORS[idx % CAR_COLORS.length]}">${letter}</div>
+       <div class="mwheels"><i></i><i></i></div>`;
+    return d;
+  }
+
+  function renderTrain(){
+    train.innerHTML = ENGINE_SVG;
+    S.cargo.forEach((L,i) => train.appendChild(miniCar(L,i)));
+  }
+
+  function renderCargoStrip(){
+    const strip = $("#cargoStrip");
+    strip.innerHTML = "";
+    S.cargo.slice(-8).forEach(L => {
+      const s = document.createElement("span");
+      s.textContent = L;
+      s.style.cssText = "font-weight:700;font-size:1rem;background:rgba(255,255,255,.7);border-radius:8px;padding:2px 8px;";
+      strip.appendChild(s);
+    });
+  }
+
+  /* ---------------- rounds ---------------- */
+  function newRound(announce){
+    S.locked = false;
+    S.missesThisRound = 0;
+    S.target = pickTarget();
+    S.options = pickOptions(S.target, choiceCount());
+
+    updatePrompt();
+
+    yard.innerHTML = "";
+    S.options.forEach((L,i) => {
+      const c = carEl(L,i);
+      c.addEventListener("click", () => onPick(c, L));
+      yard.appendChild(c);
+    });
+
+    if (announce !== false) setTimeout(()=>sayLetter(S.target), 240);
+    save();
+  }
+
+  const SHOWN_PROMPTS  = ["Find the letter","Which car is","Load the letter","Point to the letter"];
+  const HIDDEN_PROMPTS = ["Tap the letter you hear","Which car did I say?","Find the one I said","Listen, then load it"];
+
+  function updatePrompt(){
+    const p = $("#prompt");
+    if (S.showTarget){
+      p.classList.remove("listening");
+      $("#promptText").textContent = SHOWN_PROMPTS[Math.floor(Math.random()*SHOWN_PROMPTS.length)];
+      $("#promptLetter").textContent = S.target;
+      $("#adultHint").textContent = "";
+    } else {
+      p.classList.add("listening");
+      $("#promptText").textContent = HIDDEN_PROMPTS[Math.floor(Math.random()*HIDDEN_PROMPTS.length)];
+      $("#promptLetter").textContent = "";
+      $("#adultHint").textContent = S.target;   // small and faint, for you
+    }
+  }
+
+  function onPick(el, letter){
+    if (S.locked) return;
+    const d = S.letters[letter];
+
+    if (letter === S.target){
+      S.locked = true;
+      d.right++; d.streak++;
+      S.totalRight++;
+      chime();
+      say(letter + ". Yes!", 0.82);
+
+      [...yard.children].forEach(c => { if (c !== el) c.classList.add("fading"); });
+      el.classList.add("leaving");
+
+      const graduated = (!d.mastered && d.streak >= 3);
+      if (graduated) d.mastered = true;
+
+      setTimeout(() => {
+        S.cargo.push(letter);
+        renderTrain();
+        renderCargoStrip();
+        if (graduated) onGraduate(letter);
+        if (S.cargo.length >= 6) depart();
+        else setTimeout(()=>newRound(), 550);
+        save();
+      }, 430);
+
+    } else {
+      S.letters[letter].wrong++;
+      S.letters[S.target].streak = 0;
+      S.totalWrong++;
+      S.missesThisRound++;
+      clunk();
+      el.classList.remove("nudge"); void el.offsetWidth; el.classList.add("nudge");
+      say("That one is " + letter + ". Where is " + S.target + "?", 0.8);
+      if (S.missesThisRound >= 2){
+        const right = [...yard.children].find(c => c.dataset.letter === S.target);
+        if (right) right.classList.add("hint");
+      }
+      save();
+    }
+  }
+
+  function onGraduate(letter){
+    let added = null;
+    if (S.autoIntroduce){
+      added = INTRO_ORDER.find(L => !S.letters[L].active);
+      if (added) S.letters[added].active = true;
+    }
+    showToast(added ? `${letter} is learned. ${added} joins the train.` : `${letter} is learned.`, 2600);
+  }
+
+  function depart(){
+    S.locked = true;
+    whistle();
+    say("All aboard! Here it goes.", 0.9);
+    train.classList.add("departing");
+    setTimeout(() => {
+      S.cargo = [];
+      train.classList.remove("departing");
+      renderTrain();
+      renderCargoStrip();
+      newRound();
+    }, 2400);
+  }
+
+  /* ---------------- setup screen ---------------- */
+  const nameInput = $("#nameInput"), nameTrain = $("#nameTrain");
+
+  function drawNameTrain(){
+    const letters = nameInput.value.toUpperCase().replace(/[^A-Z]/g,"").split("").slice(0,9);
+    nameTrain.innerHTML = "";
+    if (!letters.length) return;
+    const eng = document.createElement("div");
+    eng.style.cssText = "width:86px;flex:none;";
+    eng.innerHTML = ENGINE_SVG.replace('id="engine"','style="width:86px;height:auto"');
+    nameTrain.appendChild(eng);
+    letters.forEach((L,i) => { const m = miniCar(L,i); m.style.flex="none"; nameTrain.appendChild(m); });
+  }
+
+  nameInput.addEventListener("input", drawNameTrain);
+
+  $("#startBtn").addEventListener("click", async () => {
+    audio();
+    S = freshState(nameInput.value);
+    await save();
+    $("#setup").style.display = "none";
+    renderTrain(); renderCargoStrip(); syncPanel();
+    newRound();
+  });
+
+  /* ---------------- panel ---------------- */
+  function syncPanel(){
+    const grid = $("#letterGrid");
+    grid.innerHTML = "";
+    ALPHABET.forEach(L => {
+      const d = S.letters[L];
+      const b = document.createElement("button");
+      b.className = "toggle" + (d.active ? " on" : "") + (d.mastered ? " mastered" : "");
+      b.type = "button";
+      b.innerHTML = `${L}<small>${d.right}/${d.right+d.wrong||0}</small>`;
+      b.addEventListener("click", () => {
+        d.active = !d.active;
+        if (!d.active) d.mastered = false;
+        if (!activeLetters().length) d.active = true;
+        syncPanel(); save();
+      });
+      grid.appendChild(b);
+    });
+
+    document.querySelectorAll("#choiceSeg button").forEach(b => b.classList.toggle("on", b.dataset.c === String(S.choiceMode)));
+    document.querySelectorAll("#targetSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === (S.showTarget ? "1" : "0")));
+    document.querySelectorAll("#soundSeg button").forEach(b => b.classList.toggle("on", b.dataset.s === (S.sound ? "1" : "0")));
+    document.querySelectorAll("#autoSeg button").forEach(b => b.classList.toggle("on", b.dataset.a === (S.autoIntroduce ? "1" : "0")));
+
+    const learned = ALPHABET.filter(L => S.letters[L].mastered);
+    const inplay = learningLetters();
+    const total = S.totalRight + S.totalWrong;
+    $("#statsLine").textContent = total
+      ? `${S.totalRight} of ${total} right this run. Working on ${inplay.join(" ") || "—"}. Learned: ${learned.join(" ") || "none yet"}.`
+      : "No rounds yet.";
+  }
+
+  $("#grownups").addEventListener("click", () => { syncPanel(); $("#panel").classList.add("open"); });
+  $("#closePanel").addEventListener("click", () => { $("#panel").classList.remove("open"); newRound(false); });
+  $("#resetBtn").addEventListener("click", async () => {
+    S = freshState(S.name); await save();
+    $("#panel").classList.remove("open");
+    renderTrain(); renderCargoStrip(); newRound();
+  });
+
+  $("#choiceSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    S.choiceMode = b.dataset.c; syncPanel(); save();
+  });
+  $("#targetSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    S.showTarget = b.dataset.t === "1";
+    if (S.target) updatePrompt();
+    syncPanel(); save();
+  });
+  $("#soundSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    S.sound = b.dataset.s === "1"; syncPanel(); save();
+  });
+  $("#autoSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    S.autoIntroduce = b.dataset.a === "1"; syncPanel(); save();
+  });
+
+  $("#prompt").addEventListener("click", () => { if (S) sayLetter(S.target); });
+  $("#prompt").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (S) sayLetter(S.target); }});
+
+  /* ---------------- boot ---------------- */
+  (async function boot(){
+    drawNameTrain();
+    const saved = await store.get("lettertrain:v1");
+    if (saved && saved.letters){
+      S = saved;
+      S.cargo = S.cargo || [];
+      S.locked = false;
+      if (typeof S.showTarget !== "boolean") S.showTarget = true;
+      $("#setup").style.display = "none";
+      renderTrain(); renderCargoStrip(); syncPanel();
+      newRound(false);
+    } else {
+      renderTrain();
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>
