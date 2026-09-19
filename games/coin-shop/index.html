@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Coin Shop</title>
+<meta name="description" content="Making amounts out of pennies, nickels, dimes and quarters.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129689;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<style>
+  :root{
+    --wall:#FFF4E0;
+    --wall-deep:#F6E3C4;
+    --wood:#A9713F;
+    --wood-dark:#7F5127;
+    --ink:#3A2218;
+    --cream:#FFFCF3;
+    --pop:#D6402E;
+    --green:#2E7D5B;
+    --gold:#E8B84B;
+    --silver:#D9DEE4;
+    --copper:#C97F3E;
+    --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--wall-deep);
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+
+  #app{
+    position:relative;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    background:
+      radial-gradient(120% 70% at 50% 0%, #FFFBF0 0%, var(--wall) 46%, var(--wall-deep) 100%);
+  }
+
+  /* ---------- shared bits ---------- */
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--cream);background:var(--green);
+    border:none;border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;padding:.75em 1.5em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn:disabled{opacity:.4;cursor:default;transform:none;}
+  .btn.quiet{
+    background:transparent;color:var(--ink);
+    border:2px solid rgba(58,34,24,.35);border-bottom-width:2px;
+  }
+  .btn.danger{background:var(--pop);}
+  .btn:focus-visible,.coin:focus-visible,.seg button:focus-visible{
+    outline:4px solid var(--gold);outline-offset:3px;
+  }
+
+  /* ---------- top bar ---------- */
+  #bar{
+    display:flex;align-items:center;gap:.5rem;
+    padding:.55rem .8rem;flex:none;
+  }
+  #bar a,#bar button.chip{
+    background:rgba(255,255,255,.7);border:2px solid rgba(58,34,24,.28);
+    color:var(--ink);border-radius:12px;padding:.42em .8em;
+    font-family:var(--font);font-size:.85rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #stageChip{
+    background:var(--gold);border:2px solid var(--ink);
+    border-radius:999px;padding:.35em .9em;
+    font-size:.8rem;font-weight:800;letter-spacing:.02em;
+    display:flex;align-items:center;gap:.4em;
+  }
+  #stageChip i{font-style:normal;opacity:.6;font-size:.72rem;}
+  #bag{
+    margin-left:auto;display:flex;align-items:center;gap:.25rem;
+    font-size:1.1rem;line-height:1;
+  }
+  #bagCount{
+    font-size:.85rem;font-weight:800;
+    background:rgba(255,255,255,.75);border-radius:999px;
+    padding:.25em .6em;border:2px solid rgba(58,34,24,.2);
+  }
+  #bagItems{letter-spacing:-.15em;opacity:.9;}
+
+  /* ---------- shop ---------- */
+  #shop{
+    position:relative;flex:1;min-height:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:.5rem;padding:.2rem 1rem .6rem;
+  }
+  #awning{
+    position:absolute;top:0;left:0;right:0;height:26px;flex:none;
+    background:repeating-linear-gradient(90deg,var(--pop) 0 34px,var(--cream) 34px 68px);
+    border-bottom:3px solid var(--ink);
+    opacity:.85;
+  }
+  #item{
+    background:var(--cream);
+    border:4px solid var(--ink);
+    border-radius:22px;
+    box-shadow:0 6px 0 rgba(58,34,24,.25);
+    padding:.7rem 1.6rem 1rem;
+    display:flex;flex-direction:column;align-items:center;gap:.1rem;
+    position:relative;max-width:min(92vw,460px);
+    cursor:pointer;
+  }
+  #item.pop{animation:pop .4s ease;}
+  #item.bought{animation:bought .7s cubic-bezier(.4,0,.2,1) forwards;}
+  #itemEmoji{font-size:clamp(3rem,13vw,5rem);line-height:1.05;}
+  #itemName{
+    font-size:clamp(1.05rem,4vw,1.5rem);font-weight:800;
+    text-align:center;line-height:1.15;
+  }
+  #priceTag{
+    margin-top:.45rem;
+    background:var(--gold);border:3px solid var(--ink);
+    border-radius:12px;padding:.2em .8em;
+    font-size:clamp(1.6rem,6.5vw,2.4rem);font-weight:800;line-height:1.1;
+    box-shadow:0 3px 0 rgba(58,34,24,.3);
+  }
+  #keeper{
+    font-size:.92rem;font-weight:600;color:rgba(58,34,24,.65);
+    text-align:center;max-width:32ch;min-height:1.3em;
+  }
+  #feedback{
+    font-size:clamp(.95rem,3.4vw,1.15rem);font-weight:800;
+    text-align:center;min-height:2.6em;max-width:34ch;line-height:1.3;
+    display:flex;align-items:center;
+  }
+  #feedback.good{color:var(--green);}
+  #feedback.miss{color:var(--pop);}
+
+  @keyframes pop{0%{transform:scale(.86);opacity:0;}60%{transform:scale(1.04);}100%{transform:none;opacity:1;}}
+  @keyframes bought{to{transform:translate(38vw,-42vh) scale(.18) rotate(12deg);opacity:0;}}
+
+  /* ---------- counter ---------- */
+  #counter{
+    flex:none;
+    background:linear-gradient(var(--wood) 0%, var(--wood-dark) 100%);
+    border-top:5px solid #5E3A1B;
+    padding:.6rem .8rem .5rem;
+    display:flex;flex-direction:column;gap:.45rem;
+  }
+  #trayRow{display:flex;align-items:center;gap:.6rem;}
+  #tray{
+    --unit:clamp(34px,8.6vw,54px);
+    flex:1;min-height:calc(var(--unit) * 1.5);
+    display:flex;flex-wrap:wrap;align-content:center;gap:5px;
+    background:rgba(255,255,255,.16);
+    border:3px dashed rgba(255,252,243,.5);
+    border-radius:14px;padding:6px;
+  }
+  #tray.shake{animation:shake .4s ease;}
+  #tray.empty::before{
+    content:"Tap coins below to pay";
+    color:rgba(255,252,243,.75);font-size:.85rem;font-weight:700;
+    padding:.4em .2em;
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-8px);}60%{transform:translateX(8px);}
+  }
+
+  #totalBox{
+    flex:none;min-width:5.2em;text-align:center;
+    background:var(--cream);border:3px solid var(--ink);border-radius:14px;
+    padding:.25em .5em .35em;box-shadow:0 3px 0 rgba(0,0,0,.28);
+  }
+  #totalBox small{display:block;font-size:.62rem;font-weight:800;letter-spacing:.08em;opacity:.6;}
+  #totalNum{font-size:clamp(1.3rem,5vw,1.9rem);font-weight:800;line-height:1.1;}
+  #totalBox.hidden #totalNum{color:rgba(58,34,24,.35);}
+  #totalBox.flash{animation:flash .5s ease;}
+  @keyframes flash{0%,100%{background:var(--cream);}40%{background:var(--gold);}}
+
+  #actions{display:flex;align-items:center;gap:.6rem;}
+  #payBtn{flex:1;font-size:1.15rem;}
+  #clearBtn{font-size:.85rem;padding:.6em 1em;color:var(--cream);border-color:rgba(255,252,243,.5);}
+
+  /* ---------- coins ---------- */
+  .coin{
+    --d:1;
+    width:calc(var(--d) * var(--unit));
+    height:calc(var(--d) * var(--unit));
+    flex:none;padding:0;cursor:pointer;
+    border-radius:50%;
+    border:2px solid rgba(58,34,24,.55);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:var(--font);color:var(--ink);
+    box-shadow:0 3px 0 rgba(0,0,0,.28), inset 0 0 0 3px rgba(255,255,255,.35);
+    transition:transform .12s ease;
+  }
+  .coin:active{transform:translateY(2px) scale(.96);}
+  .coin .val{font-weight:800;font-size:calc(var(--d) * var(--unit) * .3);line-height:1;}
+  .coin .nm{font-weight:700;font-size:calc(var(--d) * var(--unit) * .15);opacity:.7;letter-spacing:.02em;}
+  .coin.silver{background:radial-gradient(circle at 34% 28%, #FBFCFD 0%, #DDE2E8 42%, #AEB6BF 100%);}
+  .coin.copper{background:radial-gradient(circle at 34% 28%, #F2C48E 0%, #D08F4E 44%, #A4632C 100%);}
+  .coin.drop{animation:drop .28s cubic-bezier(.2,1.4,.5,1);}
+  .coin.pulse{animation:pulse 1s ease infinite;}
+  .coin.paid{animation:paid .5s ease forwards;}
+  @keyframes drop{from{transform:translateY(-26px) scale(.7);opacity:0;}to{transform:none;opacity:1;}}
+  @keyframes pulse{
+    0%,100%{box-shadow:0 3px 0 rgba(0,0,0,.28), inset 0 0 0 3px rgba(255,255,255,.35), 0 0 0 0 rgba(232,184,75,.9);}
+    50%{box-shadow:0 3px 0 rgba(0,0,0,.28), inset 0 0 0 3px rgba(255,255,255,.35), 0 0 0 13px rgba(232,184,75,0);}
+  }
+  @keyframes paid{to{transform:translate(34vw,-30vh) scale(.4);opacity:0;}}
+
+  #rack{
+    --unit:clamp(56px,14.5vw,92px);
+    flex:none;
+    display:flex;align-items:center;justify-content:center;
+    gap:clamp(10px,3.5vw,28px);
+    padding:.7rem .8rem calc(.7rem + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(rgba(58,34,24,.1), rgba(58,34,24,.2));
+    border-top:3px solid rgba(58,34,24,.25);
+  }
+
+  /* ---------- overlay ---------- */
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(58,34,24,.6);
+    padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--cream);border:4px solid var(--ink);border-radius:20px;
+    max-width:640px;width:100%;padding:1.2rem 1.3rem 1.3rem;
+    max-height:92dvh;overflow:auto;margin:auto;
+  }
+  .sheet h2{margin:.1rem 0 .5rem;font-size:1.45rem;}
+  .sheet h3{margin:1.2rem 0 .4rem;font-size:1rem;}
+  .sheet p{margin:.35rem 0;font-size:.92rem;line-height:1.5;}
+  .muted{color:rgba(58,34,24,.62);}
+  .celebrate{text-align:center;}
+  .celebrate .big{font-size:3.4rem;line-height:1.1;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.7rem 0;font-size:.92rem;}
+  .row input{
+    font-family:var(--font);font-size:1.1rem;font-weight:700;width:5em;
+    padding:.35em .5em;border:3px solid var(--ink);border-radius:10px;background:#fff;
+  }
+  .seg{display:flex;gap:6px;flex-wrap:wrap;}
+  .seg button{
+    font-family:var(--font);font-weight:700;font-size:.85rem;
+    border:2px solid rgba(58,34,24,.35);background:#fff;color:var(--ink);
+    border-radius:10px;padding:.4em .75em;cursor:pointer;
+  }
+  .seg button.on{background:var(--ink);color:var(--cream);}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:.6rem 0;}
+  .stat{background:rgba(58,34,24,.06);border-radius:12px;padding:.6em .7em;}
+  .stat b{display:block;font-size:1.4rem;}
+  .stat span{font-size:.75rem;font-weight:700;opacity:.65;}
+  .sheet .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.2rem;}
+
+  @media (max-height:560px){
+    #itemEmoji{font-size:clamp(2.2rem,9vw,3rem);}
+    #keeper{display:none;}
+    #feedback{min-height:1.6em;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="chip" id="grownups">Grown-ups</button>
+    <span id="stageChip">Stage 1 <i id="stageWhat">count it up</i></span>
+    <div id="bag"><span id="bagItems"></span><span id="bagCount">0</span>&#128717;</div>
+  </div>
+
+  <div id="shop">
+    <div id="awning" aria-hidden="true"></div>
+    <div id="item" role="button" tabindex="0" aria-live="polite">
+      <span id="itemEmoji">&#129412;</span>
+      <span id="itemName">Loading the shelves&hellip;</span>
+      <span id="priceTag">&mdash;</span>
+    </div>
+    <div id="keeper"></div>
+    <div id="feedback"></div>
+  </div>
+
+  <div id="counter">
+    <div id="trayRow">
+      <div id="tray" class="empty"></div>
+      <div id="totalBox">
+        <small>IN THE TRAY</small>
+        <div id="totalNum">0&cent;</div>
+      </div>
+    </div>
+    <div id="actions">
+      <button class="btn quiet" id="clearBtn">Take back</button>
+      <button class="btn" id="payBtn" disabled>Pay</button>
+    </div>
+  </div>
+
+  <div id="rack"></div>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- coins ---------------- */
+  // d is how big the coin draws relative to the others. A nickel really is fatter
+  // than a dime, and kids sort by size long before they sort by value.
+  const COINS = [
+    { v:1,  name:"Penny",   metal:"copper", d:1.00 },
+    { v:5,  name:"Nickel",  metal:"silver", d:1.14 },
+    { v:10, name:"Dime",    metal:"silver", d:0.88 },
+    { v:25, name:"Quarter", metal:"silver", d:1.32 }
+  ];
+  const VALUES = COINS.map(c => c.v);           // low to high
+  const BIG_FIRST = VALUES.slice().reverse();   // 25,10,5,1
+
+  /* ---------------- the shelves ---------------- */
+  const ITEMS = [
+    ["\u{1F414}","Rubber Chicken"], ["\u{1F9E6}","One Lonely Sock"],
+    ["\u{1F952}","Pickle on a Stick"], ["\u{1F9B7}","Dragon Tooth"],
+    ["\u{1F9EA}","Jar of Elbow Grease"], ["\u{1F388}","Half-Flat Balloon"],
+    ["\u{1F443}","Nose on a String"], ["\u{1F40C}","Racing Snail"],
+    ["\u{1F9C5}","Onion Lollipop"], ["\u{1FAA8}","Pet Rock"],
+    ["\u{1F9C0}","Squeaky Cheese"], ["\u{1F986}","Duck Whistle"],
+    ["\u{1F3A9}","Hat for a Cat"], ["\u{1F34C}","Banana Phone"],
+    ["\u{1F438}","Frog in a Box"], ["\u{1F576}","Sunglasses for Night"],
+    ["\u{1FA83}","Boomerang That Stays Gone"], ["\u{1F355}","Pizza Gum"],
+    ["\u{1F9F8}","Bear With No Ears"], ["\u{1FAB1}","Worm on a String"],
+    ["\u{1F3BA}","Very Tiny Trumpet"], ["\u{1F9FC}","Invisible Soap"],
+    ["\u{1F451}","Crown for a Hamster"], ["\u{1F996}","Dinosaur Slipper"],
+    ["\u{1F36D}","Sour Everything Pop"], ["\u{1F97E}","Boot for a Bird"],
+    ["\u{1FA84}","Wand (batteries extra)"], ["\u{1F9CA}","Ice Cube Collection"],
+    ["\u{1F419}","Octopus Mittens"], ["\u{1F4DE}","Phone for Ghosts"],
+    ["\u{1F941}","Drum That Only Squeaks"], ["\u{1F335}","Huggable Cactus"],
+    ["\u{1F373}","Pancake Frisbee"], ["\u{1F9F5}","Spaghetti Shoelaces"],
+    ["\u{1F987}","Bat-Shaped Umbrella"], ["\u{1F6C1}","Bathtub for One Ant"],
+    ["\u{1F9E2}","Backwards Hat"], ["\u{1F36F}","Honey for Bears Only"],
+    ["\u{1F9FF}","Lucky Left Shoelace"], ["\u{1F420}","Fish That Sings Off Key"]
+  ];
+
+  const LINES = [
+    "That one squeaks.", "Careful — it bites. A little.",
+    "Last one in the shop!", "I found it in the attic.",
+    "It only works on Tuesdays.", "Sorry, it smells like bananas.",
+    "That used to be much bigger.", "Excellent taste.",
+    "The box is free. The box is also missing.",
+    "It came from a very silly place.", "No refunds. No returns. No regrets.",
+    "It hums when nobody is looking.", "I'd buy it myself, but I'm the shopkeeper."
+  ];
+
+  /* ---------------- price levels ---------------- */
+  // Each level is a rung of difficulty inside whichever stage he's on.
+  const LEVELS = [
+    { note:"dimes and nickels, under 50¢",
+      gen(){ return 5 * ri(1,10); } },
+    { note:"any 5¢ step up to 95¢",
+      gen(){ return 5 * ri(1,19); } },
+    { note:"any amount up to 99¢, pennies included",
+      gen(){ return ri(6,99); } },
+    { note:"anything up to $1.99",
+      gen(){ return ri(26,199); } }
+  ];
+
+  const $ = s => document.querySelector(s);
+  const tray = $("#tray"), rack = $("#rack"), overlay = $("#overlay");
+
+  const ri = (lo,hi) => lo + Math.floor(Math.random()*(hi-lo+1));
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+
+  /* ---------------- storage ---------------- */
+  const store = {
+    mem:{}, ok:true,
+    async get(k){
+      try{ const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
+      catch(e){ this.ok = false; return this.mem[k] || null; }
+    },
+    async set(k,v){
+      this.mem[k] = v;
+      try{ await window.storage.set(k, JSON.stringify(v)); }catch(e){ this.ok = false; }
+    }
+  };
+
+  let S = null;
+  let sessionStart = Date.now();
+  let saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => store.set("coinshop:v1", S), 350);
+  }
+
+  function freshState(){
+    return {
+      stage:1,            // 1 count it up, 2 fewest coins, 3 fewest coins, no counter
+      level:0,            // which rung of price difficulty
+      hist:[],            // one entry per finished purchase, cleared on a stage change
+      levelHist:[],       // same idea for the price rung
+      stageMode:"auto",   // auto | 1 | 2 | 3
+      sound:true, voice:true,
+      bought:[],          // emoji of everything he's taken home
+      purchases:0, attempts:0, firstTry:0, optimalPays:0,
+      coinUse:{1:0,5:0,10:0,25:0},
+      skipped:{5:0,10:0,25:0},   // times the tidy answer wanted this coin and he used smaller ones
+      seconds:0, sessions:0,
+      // the purchase in progress, so a reload doesn't lose it
+      item:null, price:0, trayCoins:[], tries:0, hinted:false
+    };
+  }
+
+  /* ---------------- sound ---------------- */
+  let actx = null;
+  function audio(){
+    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+    catch(e){ return null; }
+  }
+  function tone(freq, dur, when, type, vol){
+    if (!S || !S.sound) return;
+    const a = audio(); if(!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type || "triangle"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, a.currentTime + when);
+    g.gain.exponentialRampToValueAtTime(vol || 0.16, a.currentTime + when + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + when + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05);
+  }
+  const clink   = v => { tone(880 + v*8, 0.07, 0, "triangle", 0.11); tone(1320 + v*8, 0.05, 0.03, "sine", 0.07); };
+  const unclink = () => tone(420, 0.07, 0, "triangle", 0.09);
+  const chaching= () => { tone(1046,0.1,0,"sine",0.15); tone(1568,0.1,0.08,"sine",0.15); tone(2093,0.35,0.16,"sine",0.12); };
+  const buzz    = () => { tone(190,0.16,0,"square",0.09); tone(150,0.2,0.12,"square",0.09); };
+  const fanfare = () => { [523,659,784,1046].forEach((f,i) => tone(f,0.28,i*0.13,"triangle",0.15)); };
+
+  /* ---------------- voice ---------------- */
+  let voice = null;
+  function pickVoice(){
+    try{
+      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+      voice = vs.find(v => /female|samantha|karen|moira|zira/i.test(v.name)) || vs[0] || null;
+    }catch(e){}
+  }
+  try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
+
+  function say(text, rate){
+    if (!S || !S.voice) return;
+    try{
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = rate || 0.9; u.pitch = 1.05;
+      if (voice) u.voice = voice;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  /* ---------------- money helpers ---------------- */
+  function priceText(c){
+    if (c < 100) return c + "¢";
+    return "$" + (c/100).toFixed(2);
+  }
+  function priceWords(c){
+    if (c < 100) return c + " cents";
+    const d = Math.floor(c/100), r = c % 100;
+    return d + (d === 1 ? " dollar" : " dollars") + (r ? " and " + r + " cents" : "");
+  }
+  const trayTotal = () => S.trayCoins.reduce((n,c) => n + c.v, 0);
+
+  function countsOf(list){
+    const m = {1:0,5:0,10:0,25:0};
+    list.forEach(c => m[c.v]++);
+    return m;
+  }
+  // With US coins, grabbing the biggest that fits always gives the fewest coins,
+  // so this doubles as "the tidy answer".
+  function greedy(cents){
+    const m = {1:0,5:0,10:0,25:0};
+    let left = cents;
+    BIG_FIRST.forEach(v => { m[v] = Math.floor(left / v); left -= m[v] * v; });
+    return m;
+  }
+  function isOptimal(){
+    const mine = countsOf(S.trayCoins), best = greedy(S.price);
+    return VALUES.every(v => mine[v] === best[v]);
+  }
+  const coinName = v => COINS.find(c => c.v === v).name;
+
+  /* ---------------- drawing ---------------- */
+  function coinEl(v, forTray){
+    const c = COINS.find(x => x.v === v);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "coin " + c.metal;
+    b.style.setProperty("--d", c.d);
+    b.dataset.v = v;
+    b.setAttribute("aria-label", c.name + ", " + v + " cents");
+    b.innerHTML = '<span class="val">' + v + "¢</span>" +
+                  (forTray ? "" : '<span class="nm">' + c.name + "</span>");
+    return b;
+  }
+
+  function renderRack(){
+    rack.innerHTML = "";
+    COINS.forEach(c => {
+      const b = coinEl(c.v, false);
+      b.addEventListener("click", () => addCoin(c.v));
+      rack.appendChild(b);
+    });
+  }
+
+  function renderTray(animateLast){
+    tray.innerHTML = "";
+    tray.classList.toggle("empty", S.trayCoins.length === 0);
+    S.trayCoins.forEach((c,i) => {
+      const b = coinEl(c.v, true);
+      if (animateLast && i === S.trayCoins.length - 1) b.classList.add("drop");
+      b.title = "Take it back";
+      b.addEventListener("click", () => removeCoin(c.id));
+      tray.appendChild(b);
+    });
+    renderTotal();
+    $("#payBtn").disabled = S.trayCoins.length === 0;
+  }
+
+  function renderTotal(reveal){
+    const box = $("#totalBox"), num = $("#totalNum");
+    const hide = (S.stage >= 3) && !reveal;
+    box.classList.toggle("hidden", hide);
+    num.textContent = hide ? "?" : priceText(trayTotal());
+  }
+
+  function renderBag(){
+    $("#bagCount").textContent = S.bought.length;
+    $("#bagItems").textContent = S.bought.slice(-6).join("");
+  }
+
+  const STAGE_WHAT = { 1:"count it up", 2:"fewest coins", 3:"in your head" };
+  function renderStage(){
+    $("#stageChip").innerHTML = "Stage " + S.stage + ' <i>' + STAGE_WHAT[S.stage] + "</i>";
+  }
+
+  function feedback(msg, kind){
+    const f = $("#feedback");
+    f.textContent = msg || "";
+    f.className = kind || "";
+  }
+
+  /* ---------------- a new customer turn ---------------- */
+  function newItem(announce){
+    const it = pick(ITEMS.filter(x => !S.item || x[1] !== S.item[1]));
+    S.item = it;
+    S.price = LEVELS[S.level].gen();
+    S.trayCoins = [];
+    S.tries = 0;
+    S.hinted = false;
+
+    const card = $("#item");
+    card.classList.remove("bought");
+    card.classList.remove("pop"); void card.offsetWidth; card.classList.add("pop");
+    $("#itemEmoji").textContent = it[0];
+    $("#itemName").textContent = it[1];
+    $("#priceTag").textContent = priceText(S.price);
+    $("#keeper").textContent = S.levelNote
+      ? "I just put out the pricier stuff."
+      : (Math.random() < 0.6 ? pick(LINES) : "");
+    S.levelNote = false;
+    feedback(S.stage >= 2 ? "Pay with the fewest coins you can." : "", "");
+
+    renderTray();
+    clearHints();
+    if (announce !== false) setTimeout(() => say(it[1] + ". " + priceWords(S.price) + "."), 260);
+    save();
+  }
+
+  /* ---------------- the tray ---------------- */
+  let coinId = 0;
+  function addCoin(v){
+    if (S.locked) return;
+    if (S.trayCoins.length >= 40){
+      tray.classList.remove("shake"); void tray.offsetWidth; tray.classList.add("shake");
+      return;
+    }
+    S.trayCoins.push({ id: ++coinId, v:v });
+    clink(v);
+    renderTray(true);
+    clearHints();
+    save();
+  }
+  function removeCoin(id){
+    if (S.locked) return;
+    S.trayCoins = S.trayCoins.filter(c => c.id !== id);
+    unclink();
+    renderTray();
+    clearHints();
+    save();
+  }
+  function clearTray(){
+    if (S.locked || !S.trayCoins.length) return;
+    S.trayCoins = [];
+    unclink();
+    renderTray();
+    clearHints();
+    save();
+  }
+
+  /* ---------------- hints ---------------- */
+  function clearHints(){
+    document.querySelectorAll(".coin.pulse").forEach(c => c.classList.remove("pulse"));
+  }
+  function pulseRack(v){
+    clearHints();
+    const el = [...rack.children].find(c => +c.dataset.v === v);
+    if (el) el.classList.add("pulse");
+  }
+  // Point at one coin, not the whole answer. Which coin depends on where he is.
+  function hint(){
+    const total = trayTotal(), left = S.price - total;
+    if (left > 0){
+      const v = BIG_FIRST.find(v => v <= left) || 1;
+      pulseRack(v);
+      return "You need " + priceText(left) + " more. Try a " + coinName(v).toLowerCase() + ".";
+    }
+    if (left < 0){
+      tray.classList.remove("shake"); void tray.offsetWidth; tray.classList.add("shake");
+      return "That's " + priceText(-left) + " too much. Tap a coin in the tray to take it back.";
+    }
+    // Right money, too many coins: name the biggest one he's short on.
+    const mine = countsOf(S.trayCoins), best = greedy(S.price);
+    const v = BIG_FIRST.find(v => mine[v] < best[v]);
+    if (v){
+      pulseRack(v);
+      return "Start with " + (best[v] > 1 ? best[v] + " " + coinName(v).toLowerCase() + "s" : "a " + coinName(v).toLowerCase()) +
+             " — the big coins first.";
+    }
+    return "So close — try swapping some small coins for a bigger one.";
+  }
+
+  /* ---------------- paying ---------------- */
+  function pay(){
+    if (S.locked || !S.trayCoins.length) return;
+    const total = trayTotal();
+    const exact = total === S.price;
+    const opt = isOptimal();
+    const needOpt = S.stage >= 2;
+    S.tries++;
+    S.attempts++;
+
+    if (exact && (!needOpt || opt)) return succeed(opt);
+
+    buzz();
+    renderTotal(true);                       // stage 3 gets a peek at what he handed over
+    $("#totalBox").classList.remove("flash"); void $("#totalBox").offsetWidth;
+    $("#totalBox").classList.add("flash");
+
+    let msg;
+    if (!exact){
+      const diff = S.price - total;
+      msg = "That's " + priceText(total) + ". " + S.item[1] + " costs " + priceText(S.price) + " — " +
+            (diff > 0 ? priceText(diff) + " short." : priceText(-diff) + " too much.");
+      say(diff > 0 ? "Not enough yet." : "That's too much.");
+    } else {
+      const best = greedy(S.price);
+      const n = VALUES.reduce((a,v) => a + best[v], 0);
+      msg = "That's the right amount! Now do it with only " + n + " coin" + (n === 1 ? "" : "s") + ".";
+      say("Right amount. Now use fewer coins.");
+    }
+
+    if (S.tries >= 2){
+      msg += " " + hint();
+      S.hinted = true;
+    }
+    feedback(msg, "miss");
+    setTimeout(() => renderTotal(), 1600);
+    save();
+  }
+
+  function succeed(opt){
+    S.locked = true;
+    chaching();
+    const clean = S.tries === 1 && !S.hinted;
+
+    S.purchases++;
+    if (clean) S.firstTry++;
+    if (opt) S.optimalPays++;
+    countTheCoins(opt);
+
+    S.bought.push(S.item[0]);
+    if (S.bought.length > 60) S.bought = S.bought.slice(-60);
+    S.hist.push({ stage:S.stage, clean:clean, optimal:opt });
+    S.levelHist.push({ level:S.level, clean:clean });
+    if (S.hist.length > 40) S.hist = S.hist.slice(-40);
+    if (S.levelHist.length > 40) S.levelHist = S.levelHist.slice(-40);
+
+    renderTotal(true);
+    feedback(praise(opt, clean), "good");
+    say(pick(["Thank you!","Sold!","Perfect.","Here you go!"]), 1);
+
+    [...tray.children].forEach((c,i) => setTimeout(() => c.classList.add("paid"), i * 55));
+    $("#item").classList.add("bought");
+
+    setTimeout(() => {
+      S.trayCoins = [];
+      renderBag();
+      considerLevel();
+      const moved = considerStage();
+      if (!moved){ S.locked = false; newItem(); }
+      save();
+    }, 1250);
+  }
+
+  function praise(opt, clean){
+    const coins = S.trayCoins.length;
+    if (S.stage === 1 && opt && clean) return "Sold! And you used the fewest coins possible — nice.";
+    if (clean && coins <= 2) return "Sold! Just " + coins + " coin" + (coins===1?"":"s") + ". Very tidy.";
+    if (clean) return pick(["Sold! Exactly right.","Perfect — that's " + priceText(S.price) + ".","Sold! Straight to the bag."]);
+    return "Got there! That's " + priceText(S.price) + ".";
+  }
+
+  // Which coins is he actually reaching for, and which does he walk past?
+  function countTheCoins(opt){
+    const mine = countsOf(S.trayCoins), best = greedy(S.price);
+    VALUES.forEach(v => S.coinUse[v] += mine[v]);
+    if (!opt){
+      [25,10,5].forEach(v => { if (mine[v] < best[v]) S.skipped[v]++; });
+    }
+  }
+
+  /* ---------------- moving him along ---------------- */
+  // Difficulty inside a stage: how hard the prices are.
+  function considerLevel(){
+    const recent = S.levelHist.filter(h => h.level === S.level).slice(-6);
+    if (recent.length < 6) return false;
+    const clean = recent.filter(r => r.clean).length;
+    if (clean >= 5 && S.level < LEVELS.length - 1){
+      S.level++; S.levelHist = [];
+      S.levelNote = true;   // the shopkeeper mentions it on the next item
+      return false;  // not worth an overlay; the prices speak for themselves
+    }
+    if (clean <= 2 && S.level > 0){
+      S.level--; S.levelHist = [];
+    }
+    return false;
+  }
+
+  // Stage: what the game is actually asking of him.
+  function considerStage(){
+    if (S.stageMode !== "auto") return false;
+    const recent = S.hist.filter(h => h.stage === S.stage);
+    const last8 = recent.slice(-8);
+
+    if (S.stage < 3 && last8.length >= 8){
+      if (S.stage === 1){
+        // Ready when paying is easy AND he's started reaching for big coins on his own.
+        const clean = last8.filter(r => r.clean).length;
+        const tidy  = last8.filter(r => r.optimal).length;
+        if (clean >= 7 && tidy >= 5) return promote(2);
+      } else {
+        const clean = last8.filter(r => r.clean && r.optimal).length;
+        if (clean >= 7) return promote(3);
+      }
+    }
+
+    if (S.stage > 1){
+      const last6 = recent.slice(-6);
+      if (last6.length >= 6 && last6.filter(r => r.clean).length <= 2) return demote();
+    }
+    return false;
+  }
+
+  function promote(to){
+    S.stage = to; S.hist = [];
+    renderStage(); save();
+    fanfare();
+    const copy = to === 2
+      ? { emoji:"\u{1F947}", head:"Shop Helper!",
+          body:"You can count coins now. New rule at this counter: pay with the <b>fewest coins</b> you can. " +
+               "Two dimes and a nickel is right — but one quarter is tidier.",
+          voice:"You earned a badge! Now pay with the fewest coins you can." }
+      : { emoji:"\u{1F9E0}", head:"Money Brain!",
+          body:"You've got this. The coin counter is switching <b>off</b> — you'll add it up in your head now. " +
+               "Still the fewest coins.",
+          voice:"You earned a badge! Now you count in your head." };
+    celebrate(copy);
+    return true;
+  }
+
+  function demote(){
+    S.stage = Math.max(1, S.stage - 1); S.hist = [];
+    renderStage(); save();
+    celebrate({
+      emoji:"\u{1F9EE}", head:"Let's use the counter again",
+      body:"Those last few were tricky, so the coin counter is back on for a while. " +
+           "It'll switch off again once these feel easy.",
+      voice:"Let's use the coin counter again for a bit."
+    });
+    return true;
+  }
+
+  function celebrate(c){
+    S.locked = true;
+    overlay.innerHTML =
+      '<div class="sheet celebrate">' +
+        '<div class="big">' + c.emoji + "</div>" +
+        "<h2>" + c.head + "</h2>" +
+        "<p>" + c.body + "</p>" +
+        '<div class="actions" style="justify-content:center">' +
+          '<button class="btn" id="goOn">Back to the shop</button>' +
+        "</div></div>";
+    overlay.classList.add("open");
+    say(c.voice, 0.95);
+    $("#goOn").focus();
+    $("#goOn").onclick = () => { closeOverlay(); newItem(); };
+  }
+
+  function closeOverlay(){
+    overlay.classList.remove("open");
+    overlay.innerHTML = "";
+    S.locked = false;
+  }
+
+  /* ---------------- grown-ups ---------------- */
+  function gate(){
+    S.locked = true;
+    const a = ri(3,9), b = ri(3,9);
+    overlay.innerHTML =
+      '<div class="sheet">' +
+        "<h2>Grown-ups only</h2>" +
+        '<p class="muted">Quick check so this stays your page: what is ' + a + " × " + b + "?</p>" +
+        '<div class="row" style="justify-content:flex-start">' +
+          '<input id="gateIn" inputmode="numeric" autocomplete="off">' +
+          '<button class="btn" id="gateGo">Open</button>' +
+          '<button class="btn quiet" id="gateNo">Back</button>' +
+        "</div>" +
+        '<p id="gateMsg" class="muted"></p>' +
+      "</div>";
+    overlay.classList.add("open");
+    $("#gateIn").focus();
+    $("#gateNo").onclick = closeOverlay;
+    $("#gateGo").onclick = () => {
+      if (+$("#gateIn").value === a*b) panel();
+      else { $("#gateMsg").textContent = "Not quite — try again."; $("#gateIn").value = ""; $("#gateIn").focus(); }
+    };
+    $("#gateIn").onkeydown = e => { if (e.key === "Enter") $("#gateGo").click(); };
+  }
+
+  function panel(){
+    const firstPct = S.purchases ? Math.round(S.firstTry / S.purchases * 100) : 0;
+    const tidyPct  = S.purchases ? Math.round(S.optimalPays / S.purchases * 100) : 0;
+    const mins = Math.round((S.seconds + (Date.now()-sessionStart)/1000) / 60);
+    const stageBlurb = {
+      1:"Any coins that add up. The counter shows the running total.",
+      2:"The total still shows, but he has to find the fewest coins — the swap from “five nickels” to “a quarter.”",
+      3:"Same rule, no counter. He's adding coins in his head before he hands them over."
+    }[S.stage];
+
+    let html =
+      '<div class="sheet">' +
+      "<h2>How he’s doing</h2>" +
+      '<p class="muted">All of this comes from ordinary play — nothing here is a test.</p>' +
+      '<div class="stats">' +
+        "<div class=\"stat\"><b>" + S.purchases + "</b><span>Things bought</span></div>" +
+        "<div class=\"stat\"><b>" + firstPct + "%</b><span>Paid first try</span></div>" +
+        "<div class=\"stat\"><b>" + tidyPct + "%</b><span>Fewest coins</span></div>" +
+        "<div class=\"stat\"><b>" + mins + "</b><span>Minutes played</span></div>" +
+      "</div>" +
+      "<h3>Stage " + S.stage + " — " + STAGE_WHAT[S.stage] + "</h3>" +
+      "<p>" + stageBlurb + "</p>" +
+      '<p class="muted">Prices right now: ' + LEVELS[S.level].note + ". That rung moves on its own too — " +
+      "five clean buys out of six and the prices step up, two out of six and they step back down.</p>";
+
+    // Which coins he actually uses.
+    const used = VALUES.reduce((a,v) => a + S.coinUse[v], 0);
+    html += "<h3>Coins he reaches for</h3>";
+    if (used < 12){
+      html += '<p class="muted">Not enough shopping yet. After a dozen or so purchases this shows which coins he trusts.</p>';
+    } else {
+      html += '<p>' + BIG_FIRST.map(v =>
+        coinName(v) + "s: " + Math.round(S.coinUse[v]/used*100) + "%"
+      ).join(" · ") + "</p>";
+      const worst = [25,10,5].filter(v => S.skipped[v] >= 3)
+        .sort((a,b) => S.skipped[b] - S.skipped[a])[0];
+      if (worst){
+        html += "<p>He keeps walking past the <b>" + coinName(worst).toLowerCase() + "</b> — " + S.skipped[worst] +
+                " times he built the amount out of smaller coins when " + (worst === 25 ? "a quarter" : "a " + coinName(worst).toLowerCase()) +
+                " would have done it. That's the usual sticking point: counting by 25s and 10s is a different skill from counting by 1s, " +
+                "and real-life change is mostly quarters.</p>";
+      } else {
+        html += '<p class="muted">He spreads his picks sensibly across all four coins.</p>';
+      }
+    }
+
+    html +=
+      "<h3>Settings</h3>" +
+      '<div class="row"><span>Stage<br><small class="muted">Auto moves him along on its own</small></span>' +
+        '<div class="seg" id="stageSeg">' +
+          '<button data-s="auto">Auto</button><button data-s="1">1</button>' +
+          '<button data-s="2">2</button><button data-s="3">3</button>' +
+        "</div></div>" +
+      '<div class="row"><span>Price difficulty</span>' +
+        '<div class="seg" id="levelSeg">' +
+          LEVELS.map((l,i) => '<button data-l="' + i + '">' + (i+1) + "</button>").join("") +
+        "</div></div>" +
+      '<div class="row"><span>Coin sounds</span>' +
+        '<div class="seg" id="soundSeg"><button data-x="1">On</button><button data-x="0">Off</button></div></div>' +
+      '<div class="row"><span>Say the price out loud</span>' +
+        '<div class="seg" id="voiceSeg"><button data-x="1">On</button><button data-x="0">Off</button></div></div>';
+
+    if (!store.ok){
+      html += '<p class="muted">Heads up: progress isn’t saving in this window, so these numbers cover today only.</p>';
+    }
+
+    html +=
+      '<div class="actions">' +
+        '<button class="btn" id="closeP">Back to the shop</button>' +
+        '<button class="btn danger" id="resetP">Erase all progress</button>' +
+      "</div></div>";
+
+    overlay.innerHTML = html;
+    overlay.classList.add("open");
+
+    const mark = (sel, val) => document.querySelectorAll(sel + " button")
+      .forEach(b => b.classList.toggle("on", (b.dataset.s || b.dataset.l || b.dataset.x) === String(val)));
+    mark("#stageSeg", S.stageMode);
+    mark("#levelSeg", S.level);
+    mark("#soundSeg", S.sound ? 1 : 0);
+    mark("#voiceSeg", S.voice ? 1 : 0);
+
+    $("#stageSeg").onclick = e => {
+      const b = e.target.closest("button"); if(!b) return;
+      S.stageMode = b.dataset.s;
+      if (S.stageMode !== "auto") S.stage = +S.stageMode;
+      S.hist = []; renderStage(); save(); mark("#stageSeg", S.stageMode);
+    };
+    $("#levelSeg").onclick = e => {
+      const b = e.target.closest("button"); if(!b) return;
+      S.level = +b.dataset.l; S.levelHist = []; save(); mark("#levelSeg", S.level);
+    };
+    $("#soundSeg").onclick = e => {
+      const b = e.target.closest("button"); if(!b) return;
+      S.sound = b.dataset.x === "1"; save(); mark("#soundSeg", S.sound ? 1 : 0);
+    };
+    $("#voiceSeg").onclick = e => {
+      const b = e.target.closest("button"); if(!b) return;
+      S.voice = b.dataset.x === "1"; save(); mark("#voiceSeg", S.voice ? 1 : 0);
+    };
+    $("#closeP").onclick = () => { closeOverlay(); renderTotal(); newItem(false); };
+    $("#resetP").onclick = async () => {
+      if (!confirm("Erase his saved progress and start over?")) return;
+      S = freshState(); S.sessions = 1;
+      await store.set("coinshop:v1", S);
+      renderStage(); renderBag(); closeOverlay(); newItem();
+    };
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#payBtn").addEventListener("click", () => { audio(); pay(); });
+  $("#clearBtn").addEventListener("click", clearTray);
+  $("#grownups").addEventListener("click", gate);
+  $("#item").addEventListener("click", () => { if (S && S.item) say(S.item[1] + ". " + priceWords(S.price) + "."); });
+  $("#item").addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $("#item").click(); }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (!S || overlay.classList.contains("open")) return;
+    if (e.key === "1") addCoin(1);
+    else if (e.key === "5") addCoin(5);
+    else if (e.key === "d" || e.key === "D") addCoin(10);
+    else if (e.key === "q" || e.key === "Q") addCoin(25);
+    else if (e.key === "Backspace"){ e.preventDefault(); if (S.trayCoins.length) removeCoin(S.trayCoins[S.trayCoins.length-1].id); }
+    else if (e.key === "Enter") pay();
+  });
+
+  setInterval(() => { if (S) { S.seconds += 15; save(); } }, 15000);
+  window.addEventListener("beforeunload", () => {
+    if (S) store.set("coinshop:v1", S);
+  });
+
+  /* ---------------- boot ---------------- */
+  (async function boot(){
+    const saved = await store.get("coinshop:v1");
+    S = saved && saved.coinUse ? Object.assign(freshState(), saved) : freshState();
+    S.locked = false;
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+
+    renderRack(); renderStage(); renderBag();
+
+    if (S.item && S.price){
+      // pick up exactly where he put the tray down
+      S.trayCoins.forEach(c => { c.id = ++coinId; });
+      $("#itemEmoji").textContent = S.item[0];
+      $("#itemName").textContent = S.item[1];
+      $("#priceTag").textContent = priceText(S.price);
+      $("#keeper").textContent = "Welcome back.";
+      feedback(S.stage >= 2 ? "Pay with the fewest coins you can." : "", "");
+      renderTray();
+    } else {
+      newItem(false);
+    }
+    save();
+  })();
+
+})();
+</script>
+</body>
+</html>

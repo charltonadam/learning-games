@@ -91,6 +91,10 @@ header p{
 .go svg{width:16px;height:16px;flex:none}
 
 /* per-game accents */
+.shop .art{background:linear-gradient(#FFF4E0 0%, #F6E3C4 58%, #A9713F 58%, #7F5127 100%)}
+.shop .go{color:#B0641F}
+.shop .tag{background:#FBEEDA;color:#9A5A1B}
+
 .dive .art{background:linear-gradient(#1B9AAA 0%, #0F5C8C 52%, #0A2E52 100%)}
 .dive .go{color:#0F5C8C}
 .dive .tag{background:#E2F2F6;color:#0F5C8C}
@@ -201,6 +205,57 @@ footer p{margin:0 auto;max-width:52ch}
           <div class="tags">
             <span class="tag">Letter recognition</span>
             <span class="tag">Letter names</span>
+          </div>
+        </div>
+      </a>
+    </li>
+
+    <li>
+      <a class="card shop" href="games/coin-shop/">
+        <div class="art">
+          <svg viewBox="0 0 320 180" role="img" aria-label="A shop counter with a price tag and a pile of coins">
+            <rect x="0" y="0" width="320" height="18" fill="#D6402E"/>
+            <rect x="0" y="0" width="320" height="18" fill="url(#stripe)"/>
+            <defs>
+              <pattern id="stripe" width="44" height="18" patternUnits="userSpaceOnUse">
+                <rect x="22" y="0" width="22" height="18" fill="#FBF3E2"/>
+              </pattern>
+            </defs>
+            <rect x="0" y="18" width="320" height="4" fill="#3A2218"/>
+
+            <g transform="translate(92 42) rotate(-7)">
+              <path d="M0 14 L44 0 L96 0 L96 56 L44 56 Z" fill="#E8B84B" stroke="#3A2218" stroke-width="4" stroke-linejoin="round"/>
+              <circle cx="30" cy="28" r="6" fill="#FBF3E2" stroke="#3A2218" stroke-width="4"/>
+              <text x="66" y="40" text-anchor="middle" font-family="Fredoka, Verdana, sans-serif" font-size="27" font-weight="700" fill="#3A2218">47&#162;</text>
+            </g>
+
+            <rect x="0" y="104" width="320" height="4" fill="#5E3A1B"/>
+            <rect x="0" y="108" width="320" height="72" fill="#A9713F"/>
+
+            <g stroke="#3A2218" stroke-width="3.5">
+              <circle cx="76" cy="136" r="24" fill="#DDE2E8"/>
+              <circle cx="146" cy="142" r="17" fill="#DDE2E8"/>
+              <circle cx="200" cy="138" r="20" fill="#D08F4E"/>
+              <circle cx="252" cy="144" r="15" fill="#DDE2E8"/>
+            </g>
+            <g font-family="Fredoka, Verdana, sans-serif" font-weight="700" fill="#3A2218" text-anchor="middle">
+              <text x="76" y="144" font-size="17">25&#162;</text>
+              <text x="146" y="148" font-size="13">10&#162;</text>
+              <text x="200" y="145" font-size="14">1&#162;</text>
+              <text x="252" y="149" font-size="12">5&#162;</text>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h2>Coin Shop</h2>
+          <p>Silly things for sale. Pay the exact amount out of pennies, nickels,
+             dimes and quarters &mdash; then learn to do it with the fewest coins.</p>
+          <span class="go">Go shopping
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h10M8 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <div class="tags">
+            <span class="tag">Counting money</span>
+            <span class="tag">Adding to a total</span>
           </div>
         </div>
       </a>
