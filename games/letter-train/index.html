@@ -335,6 +335,14 @@
     <div id="panelCard">
       <h2>Grown-ups</h2>
       <p>Tap a letter to switch it on or off. Green letters are in play. Gold letters he's got three in a row — they stay in as distractors.</p>
+      <div class="row">
+        <span>Letter case<br><small style="opacity:.7">Mix brings each lowercase in once he's learned its capital. ABC and abc flip everything at once.</small></span>
+        <div class="seg" id="caseSeg">
+          <button data-k="upper">ABC</button>
+          <button data-k="mix">Mix</button>
+          <button data-k="lower">abc</button>
+        </div>
+      </div>
       <div class="grid" id="letterGrid"></div>
 
       <h3>How it runs</h3>
@@ -386,11 +394,21 @@
   "use strict";
 
   const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const LOWER    = ALPHABET.map(L => L.toLowerCase());
+  const GLYPHS   = ALPHABET.concat(LOWER);
+
+  // A glyph's base letter: "a" and "A" are the same letter wearing a different hat.
+  const baseOf = g => g.toUpperCase();
 
   // Letters that look alike. Kept apart on easy rounds, put together on hard ones.
   const LOOKALIKES = [
     ["B","D","P","R"], ["M","W"], ["E","F"], ["O","Q"], ["C","G"],
-    ["U","V","Y"], ["N","Z"], ["I","L","T"], ["K","X"], ["S","Z"], ["G","J"]
+    ["U","V","Y"], ["N","Z"], ["I","L","T"], ["K","X"], ["S","Z"], ["G","J"],
+    ["b","d","p","q"], ["m","n","w"], ["a","e","o","c"], ["g","q","y","j"],
+    ["u","v","w","y"], ["i","j","l","t"], ["f","t"], ["k","x"], ["s","z"],
+    ["h","n","r"],
+    // Across the cases these trip him up too.
+    ["l","I","i","J"], ["q","P"], ["b","D"], ["a","O"], ["g","J"]
   ];
 
   // Rough order of introduction: distinct shapes and common letters first.
@@ -419,7 +437,7 @@
 
   function freshState(name){
     const letters = {};
-    ALPHABET.forEach(L => letters[L] = {active:false, streak:0, right:0, wrong:0, mastered:false});
+    GLYPHS.forEach(g => letters[g] = {active:false, streak:0, right:0, wrong:0, mastered:false});
     const seed = (name||"").toUpperCase().replace(/[^A-Z]/g,"").split("");
     const uniq = [...new Set(seed)];
     uniq.forEach(L => letters[L].active = true);
@@ -431,6 +449,8 @@
     return {
       name: (name||"").trim(),
       letters,
+      caseMode: "mix",
+      lastIntroCase: "upper",
       choiceMode: "auto",
       showTarget: true,
       sound: true,
@@ -468,8 +488,9 @@
       speechSynthesis.speak(u);
     }catch(e){}
   }
-  // Letter names read more reliably with a trailing period.
-  const sayLetter = L => say(L + ".", 0.75);
+  // Letter names read more reliably with a trailing period, and lowercase glyphs
+  // get spoken as words ("a") unless they go to the voice as capitals.
+  const sayLetter = g => say(g.toUpperCase() + ".", 0.75);
 
   /* ---------------- sounds (WebAudio, no files) ---------------- */
   let actx = null;
@@ -492,8 +513,25 @@
   const clunk  = () => tone(180,0.12,0,"square",0.1);
 
   /* ---------------- helpers ---------------- */
-  const activeLetters   = () => ALPHABET.filter(L => S.letters[L].active);
-  const learningLetters = () => activeLetters().filter(L => !S.letters[L].mastered);
+  // A letter counts as in play if either of its cases is switched on.
+  const baseActive = L => S.letters[L].active || S.letters[L.toLowerCase()].active;
+
+  // The glyphs on offer right now. In the wholesale modes every letter wears the
+  // same case, so a capital and its lowercase can never turn up side by side.
+  function playableGlyphs(){
+    if (S.caseMode === "mix") return GLYPHS.filter(g => S.letters[g].active);
+    const lower = S.caseMode === "lower";
+    return ALPHABET.filter(baseActive).map(L => lower ? L.toLowerCase() : L);
+  }
+
+  const learningGlyphs = () => playableGlyphs().filter(g => !S.letters[g].mastered);
+
+  // Last-resort distractors when too few letters are switched on.
+  function fillerGlyphs(){
+    if (S.caseMode === "upper") return ALPHABET;
+    if (S.caseMode === "lower") return LOWER;
+    return ALPHABET.map(L => Math.random() < 0.5 ? L : L.toLowerCase());
+  }
 
   function lookalikesOf(L){
     const out = new Set();
@@ -509,8 +547,8 @@
   }
 
   function pickTarget(){
-    const learning = learningLetters();
-    const pool = learning.length ? learning : activeLetters();
+    const learning = learningGlyphs();
+    const pool = learning.length ? learning : playableGlyphs();
     // Weight toward letters he has not nailed yet, and avoid an instant repeat.
     const bag = [];
     pool.forEach(L => {
@@ -523,18 +561,21 @@
   }
 
   function pickOptions(target, n){
-    const others = activeLetters().filter(L => L !== target);
+    // One car per letter: A never stands next to a, whatever the mode.
+    const used = new Set([baseOf(target)]);
+    const others = playableGlyphs().filter(g => !used.has(baseOf(g)));
     const confusing = lookalikesOf(target);
-    const easy = others.filter(L => !confusing.has(L));
-    const hard = others.filter(L => confusing.has(L));
+    const easy = others.filter(g => !confusing.has(g));
+    const hard = others.filter(g => confusing.has(g));
     // Hold back the tricky lookalikes until 4-car rounds.
     let source = (n >= 4 && hard.length) ? shuffle(hard).slice(0,1).concat(shuffle(easy)) : shuffle(easy.length ? easy : others);
-    if (!source.length) source = shuffle(ALPHABET.filter(L => L !== target));
+    source = source.concat(shuffle(fillerGlyphs()));
     const picks = [];
-    for (const L of source){ if (picks.length >= n-1) break; picks.push(L); }
-    while (picks.length < n-1){
-      const L = ALPHABET[Math.floor(Math.random()*26)];
-      if (L !== target && !picks.includes(L)) picks.push(L);
+    for (const g of source){
+      if (picks.length >= n-1) break;
+      if (used.has(baseOf(g))) continue;
+      used.add(baseOf(g));
+      picks.push(g);
     }
     return shuffle(picks.concat(target));
   }
@@ -656,7 +697,7 @@
       d.right++; d.streak++;
       S.totalRight++;
       chime();
-      say(letter + ". Yes!", 0.82);
+      say(letter.toUpperCase() + ". Yes!", 0.82);
 
       [...yard.children].forEach(c => { if (c !== el) c.classList.add("fading"); });
       el.classList.add("leaving");
@@ -681,7 +722,7 @@
       S.missesThisRound++;
       clunk();
       el.classList.remove("nudge"); void el.offsetWidth; el.classList.add("nudge");
-      say("That one is " + letter + ". Where is " + S.target + "?", 0.8);
+      say("That one is " + letter.toUpperCase() + ". Where is " + S.target.toUpperCase() + "?", 0.8);
       if (S.missesThisRound >= 2){
         const right = [...yard.children].find(c => c.dataset.letter === S.target);
         if (right) right.classList.add("hint");
@@ -690,11 +731,29 @@
     }
   }
 
+  // The next glyph to bring in. Lowercase waits until its capital is learned, and
+  // in Mix mode the two cases take turns so lowercase trickles in beside them.
+  function nextIntro(){
+    if (S.caseMode !== "mix"){
+      const next = INTRO_ORDER.find(L => !baseActive(L));
+      return next ? (S.caseMode === "lower" ? next.toLowerCase() : next) : null;
+    }
+    const nextUpper = INTRO_ORDER.find(L => !S.letters[L].active);
+    const nextLower = INTRO_ORDER
+      .map(L => L.toLowerCase())
+      .find(l => !S.letters[l].active && S.letters[baseOf(l)].mastered);
+    const wantLower = S.lastIntroCase !== "lower";
+    return (wantLower ? nextLower || nextUpper : nextUpper || nextLower) || null;
+  }
+
   function onGraduate(letter){
     let added = null;
     if (S.autoIntroduce){
-      added = INTRO_ORDER.find(L => !S.letters[L].active);
-      if (added) S.letters[added].active = true;
+      added = nextIntro();
+      if (added){
+        S.letters[added].active = true;
+        S.lastIntroCase = (added === added.toLowerCase()) ? "lower" : "upper";
+      }
     }
     showToast(added ? `${letter} is learned. ${added} joins the train.` : `${letter} is learned.`, 2600);
   }
@@ -742,28 +801,41 @@
   function syncPanel(){
     const grid = $("#letterGrid");
     grid.innerHTML = "";
-    ALPHABET.forEach(L => {
-      const d = S.letters[L];
+    const mix = S.caseMode === "mix";
+    const shown = mix ? GLYPHS : (S.caseMode === "lower" ? LOWER : ALPHABET);
+    shown.forEach(g => {
+      const d = S.letters[g];
+      const on = mix ? d.active : baseActive(baseOf(g));
       const b = document.createElement("button");
-      b.className = "toggle" + (d.active ? " on" : "") + (d.mastered ? " mastered" : "");
+      b.className = "toggle" + (on ? " on" : "") + (on && d.mastered ? " mastered" : "");
       b.type = "button";
-      b.innerHTML = `${L}<small>${d.right}/${d.right+d.wrong||0}</small>`;
+      b.innerHTML = `${g}<small>${d.right}/${d.right+d.wrong||0}</small>`;
       b.addEventListener("click", () => {
-        d.active = !d.active;
-        if (!d.active) d.mastered = false;
-        if (!activeLetters().length) d.active = true;
+        if (mix){
+          d.active = !d.active;
+          if (!d.active) d.mastered = false;
+        } else if (on){
+          // One switch covers both cases while a wholesale mode is on.
+          [baseOf(g), baseOf(g).toLowerCase()].forEach(k => {
+            S.letters[k].active = false; S.letters[k].mastered = false;
+          });
+        } else {
+          d.active = true;
+        }
+        if (!playableGlyphs().length) d.active = true;
         syncPanel(); save();
       });
       grid.appendChild(b);
     });
 
+    document.querySelectorAll("#caseSeg button").forEach(b => b.classList.toggle("on", b.dataset.k === S.caseMode));
     document.querySelectorAll("#choiceSeg button").forEach(b => b.classList.toggle("on", b.dataset.c === String(S.choiceMode)));
     document.querySelectorAll("#targetSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === (S.showTarget ? "1" : "0")));
     document.querySelectorAll("#soundSeg button").forEach(b => b.classList.toggle("on", b.dataset.s === (S.sound ? "1" : "0")));
     document.querySelectorAll("#autoSeg button").forEach(b => b.classList.toggle("on", b.dataset.a === (S.autoIntroduce ? "1" : "0")));
 
-    const learned = ALPHABET.filter(L => S.letters[L].mastered);
-    const inplay = learningLetters();
+    const learned = GLYPHS.filter(g => S.letters[g].mastered);
+    const inplay = learningGlyphs();
     const total = S.totalRight + S.totalWrong;
     $("#statsLine").textContent = total
       ? `${S.totalRight} of ${total} right this run. Working on ${inplay.join(" ") || "—"}. Learned: ${learned.join(" ") || "none yet"}.`
@@ -778,6 +850,10 @@
     renderTrain(); renderCargoStrip(); newRound();
   });
 
+  $("#caseSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if(!b) return;
+    S.caseMode = b.dataset.k; syncPanel(); save();
+  });
   $("#choiceSeg").addEventListener("click", e => {
     const b = e.target.closest("button"); if(!b) return;
     S.choiceMode = b.dataset.c; syncPanel(); save();
@@ -809,6 +885,12 @@
       S.cargo = S.cargo || [];
       S.locked = false;
       if (typeof S.showTarget !== "boolean") S.showTarget = true;
+      // Saves from before lowercase existed only carry the 26 capitals.
+      GLYPHS.forEach(g => {
+        if (!S.letters[g]) S.letters[g] = {active:false, streak:0, right:0, wrong:0, mastered:false};
+      });
+      if (!S.caseMode) S.caseMode = "mix";
+      if (!S.lastIntroCase) S.lastIntroCase = "upper";
       $("#setup").style.display = "none";
       renderTrain(); renderCargoStrip(); syncPanel();
       newRound(false);
