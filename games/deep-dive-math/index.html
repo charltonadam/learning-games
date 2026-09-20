@@ -6,6 +6,9 @@
 <meta name="description" content="Adding and taking away, one ocean zone at a time.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127769;</text></svg>">
 <script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
@@ -24,6 +27,23 @@
   --paper:#EAF7FB;
   --display:'Fredoka','Trebuchet MS',Verdana,sans-serif;
   --body:'Nunito','Segoe UI',system-ui,sans-serif;
+
+  /* the shared grown-ups panel, in this game's colours */
+  --kit-font:var(--body);
+  --kit-ink:var(--ink);
+  --kit-muted:#4B6478;
+  --kit-paper:var(--paper);
+  --kit-line:#CFE6F0;
+  --kit-tile:#fff;
+  --kit-accent:var(--mid);
+  --kit-accent-ink:#fff;
+  --kit-danger:#fff;
+  --kit-danger-ink:#9B2C1A;
+  --kit-scrim:rgba(4,20,43,.72);
+  --kit-focus:var(--glow);
+  --kit-on:var(--mid);
+  --kit-on-ink:#fff;
+  --kit-radius:16px;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -169,18 +189,11 @@
   padding:6px 8px;
 }
 .parent-link:hover{color:rgba(255,255,255,.8)}
-.sheet{
-  position:absolute;inset:0;z-index:30;background:var(--paper);color:var(--ink);
-  padding:24px;overflow-y:auto;font-size:14.5px;line-height:1.5;
-}
-.sheet h2{font-family:var(--display);font-size:23px;margin:0 0 3px}
-.sheet h3{font-family:var(--display);font-size:16px;margin:22px 0 8px;color:var(--mid)}
-.sheet p{margin:0 0 10px;max-width:62ch}
+.gu-sheet h2,.gu-sheet h3{font-family:var(--display)}
+.gu-sheet h3{color:var(--mid)}
+.gu-sheet .gu-stat{border:2px solid #CFE6F0}
+.gu-sheet .gu-stat b{font-family:var(--display);color:var(--mid)}
 .muted{color:#4B6478}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px;margin:14px 0 4px}
-.stat{background:#fff;border:2px solid #CFE6F0;border-radius:12px;padding:11px 13px}
-.stat b{display:block;font-family:var(--display);font-size:25px;color:var(--mid);line-height:1.1}
-.stat span{font-size:12px;color:#4B6478}
 .factlist{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
 .fact{
   font-family:var(--display);font-weight:600;font-size:14px;
@@ -189,15 +202,10 @@
 .fact.slow{background:#FFF3D6;border-color:#F0C14B;color:#7A5A0B}
 .fact.missed{background:#FFE2DC;border-color:#FF6B57;color:#8C2A19}
 .fact.solid{background:#DFF6E2;border-color:#6BC47E;color:#1F5B2E}
-.gate{max-width:300px}
-.gate input{
-  font-family:var(--display);font-size:24px;width:110px;padding:9px 12px;
-  border:3px solid var(--mid);border-radius:11px;text-align:center;margin-right:8px;
-}
-.sheet .btn{background:var(--mid);color:#fff;border-bottom-color:#08405F;font-size:16px;padding:11px 22px}
-.sheet .btn.ghost{background:#fff;color:var(--mid);border:2px solid #CFE6F0;border-bottom-width:3px}
-.sheet .btn.danger{background:#fff;color:#9B2C1A;border:2px solid #FFC9BE;border-bottom-width:3px}
-.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.gu-sheet .gu-gate input{font-family:var(--display);font-size:24px;border-color:var(--mid)}
+.gu-sheet .btn{background:var(--mid);color:#fff;border-bottom-color:#08405F;font-size:16px;padding:11px 22px}
+.gu-sheet .btn.ghost{background:#fff;color:var(--mid);border:2px solid #CFE6F0;border-bottom-width:3px}
+.gu-sheet .btn.danger{background:#fff;color:#9B2C1A;border:2px solid #FFC9BE;border-bottom-width:3px}
 
 @media(max-width:560px){
   .gauge{width:80px}
@@ -312,42 +320,31 @@ var save = { maxDepth:0, totalRight:0, totalTried:0, facts:{}, sessions:0, secon
 var depth = 0, streak = 0, best = 0, zoneIdx = 0;
 var cur = null, entry = "", locked = false, shownAt = 0;
 var sessionStart = Date.now();
-var storageOK = true;
+var KEY = "deepdive-progress";
 
 var $ = function(id){ return document.getElementById(id); };
 
 /* ---------------- storage ---------------- */
 async function load(){
-  try{
-    var r = await window.storage.get("deepdive-progress");
-    if(r && r.value){
-      var d = JSON.parse(r.value);
-      save.maxDepth  = d.maxDepth  || 0;
-      save.totalRight= d.totalRight|| 0;
-      save.totalTried= d.totalTried|| 0;
-      save.facts     = d.facts     || {};
-      save.sessions  = d.sessions  || 0;
-      save.seconds   = d.seconds   || 0;
-    }
-  }catch(e){ /* first run, or storage unavailable */ }
+  var d = await Kit.store.get(KEY);   // null on a first run
+  if(d){
+    save.maxDepth  = d.maxDepth  || 0;
+    save.totalRight= d.totalRight|| 0;
+    save.totalTried= d.totalTried|| 0;
+    save.facts     = d.facts     || {};
+    save.sessions  = d.sessions  || 0;
+    save.seconds   = d.seconds   || 0;
+  }
   save.sessions += 1;
   persist();
 }
-var pending = null;
-function persist(){
-  if(!storageOK) return;
-  clearTimeout(pending);
-  pending = setTimeout(async function(){
-    try{
-      save.seconds = Math.round(save.seconds);
-      await window.storage.set("deepdive-progress", JSON.stringify(save));
-    }catch(e){ storageOK = false; }
-  }, 400);
-}
+var persist = Kit.debounce(function(){
+  save.seconds = Math.round(save.seconds);
+  Kit.store.set(KEY, save);
+}, 400);
 
 /* ---------------- problem generation ---------------- */
-function ri(lo,hi){ return lo + Math.floor(Math.random()*(hi-lo+1)); }
-function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+var ri = Kit.ri, pick = Kit.pick;
 
 function makeAddSub(max){
   var t, b, a, c, i;
@@ -573,30 +570,20 @@ function discovery(z){
 }
 
 /* ---------------- parent sheet ---------------- */
-function parentGate(){
-  var a = ri(3,9), b = ri(3,9);
-  var o = $("overlay");
-  o.innerHTML =
-    '<div class="sheet"><div class="gate">' +
-      '<h2>Grown-ups only</h2>' +
-      '<p class="muted">Quick check so this stays your page: what is ' + a + ' \u00D7 ' + b + '?</p>' +
-      '<div class="row"><input id="gateIn" inputmode="numeric" autocomplete="off">' +
-      '<button class="btn" id="gateGo">Open</button>' +
-      '<button class="btn ghost" id="gateNo">Back</button></div>' +
-      '<p id="gateMsg" class="muted" style="margin-top:10px"></p>' +
-    '</div></div>';
-  $("gateIn").focus();
-  $("gateNo").onclick = closeSheet;
-  $("gateGo").onclick = function(){
-    if(+$("gateIn").value === a*b) parentSheet();
-    else { $("gateMsg").textContent = "Not quite \u2014 try again."; $("gateIn").value = ""; $("gateIn").focus(); }
-  };
-  $("gateIn").onkeydown = function(e){ if(e.key === "Enter") $("gateGo").click(); };
+/* Shape and gate live in shared/grownups.js; this builds the content. */
+
+/* Depth starts at 0 every session, so a parent can put him back where he was.
+   The jump isn't an achievement, so it mustn't move his deepest dive. */
+function jumpToZone(i){
+  var deepest = save.maxDepth;
+  zoneIdx = i;
+  applyZone();
+  setDepth(ZONES[i].at);
+  save.maxDepth = deepest;
+  persist();
 }
 
-function closeSheet(){ $("overlay").innerHTML = ""; locked = false; nextProblem(); }
-
-function parentSheet(){
+function panelConfig(){
   var slow = [], missed = [], solid = [];
   for(var k in save.facts){
     var f = save.facts[k];
@@ -609,70 +596,74 @@ function parentSheet(){
   }
   var acc = save.totalTried ? Math.round(save.totalRight / save.totalTried * 100) : 0;
   var mins = Math.round((save.seconds + (Date.now()-sessionStart)/1000) / 60);
+  var sections = [];
 
-  var html =
-    '<div class="sheet">' +
-    '<h2>How he\u2019s doing</h2>' +
-    '<p class="muted">Everything here is measured while he plays \u2014 nothing is a test.</p>' +
-    '<div class="stats">' +
-      '<div class="stat"><b>' + Math.round(save.maxDepth) + 'm</b><span>Deepest dive</span></div>' +
-      '<div class="stat"><b>' + acc + '%</b><span>Correct</span></div>' +
-      '<div class="stat"><b>' + save.totalTried + '</b><span>Problems tried</span></div>' +
-      '<div class="stat"><b>' + mins + '</b><span>Minutes played</span></div>' +
-    '</div>';
-
-  html += '<h3>Facts to work on</h3>';
+  var work = "";
   if(!missed.length && !slow.length){
-    html += '<p class="muted">' + (save.totalTried < 12
+    work += '<p class="muted">' + (save.totalTried < 12
       ? 'Not enough plays yet. After a few dives this fills in with the specific facts he hesitates on.'
       : 'Nothing is lagging right now. Everything he\u2019s hit is both accurate and quick.') + '</p>';
   } else {
     if(missed.length){
-      html += '<p>Getting these wrong:</p><div class="factlist">' +
+      work += '<p>Getting these wrong:</p><div class="factlist">' +
         missed.map(function(x){ return '<span class="fact missed">' + x + '</span>'; }).join("") + '</div>';
     }
     if(slow.length){
-      html += '<p>Correct, but slow \u2014 he\u2019s still counting these out rather than recalling them:</p>' +
+      work += '<p>Correct, but slow \u2014 he\u2019s still counting these out rather than recalling them:</p>' +
         '<div class="factlist">' +
         slow.map(function(x){ return '<span class="fact slow">' + x + '</span>'; }).join("") + '</div>';
     }
-    html += '<p class="muted">Slow is the more useful signal. A fact that takes him more than about three seconds ' +
+    work += '<p class="muted">Slow is the more useful signal. A fact that takes him more than about three seconds ' +
             'isn\u2019t automatic yet, and those are the ones that make two-digit work feel hard later. ' +
             'The game already feeds these back to him more often.</p>';
   }
+  sections.push({ title:"Facts to work on", html:work });
 
   if(solid.length){
-    html += '<h3>Locked in</h3><div class="factlist">' +
-      solid.slice(0,24).map(function(x){ return '<span class="fact solid">' + x + '</span>'; }).join("") + '</div>';
+    sections.push({ title:"Locked in", html:'<div class="factlist">' +
+      solid.slice(0,24).map(function(x){ return '<span class="fact solid">' + x + '</span>'; }).join("") + '</div>' });
   }
 
-  html +=
-    '<h3>What the depths mean</h3>' +
+  sections.push({ title:"What the depths mean", html:
     '<p>0\u2013120m is adding and subtracting within 10. 120\u2013340m moves to within 20 \u2014 that\u2019s the ' +
     'end-of-1st-grade benchmark and the one that matters most this year. 340\u2013640m brings in two-digit ' +
     'numbers and skip counting, 640\u20131000m is place value to 1,000, and past 1,000m he\u2019s working with ' +
     'rows and groups, which is how multiplication starts.</p>' +
     '<p class="muted">If he parks comfortably around 300\u2013400m, he\u2019s right where a 2nd grader should be ' +
-    'in September. Deeper than that is genuinely ahead.</p>';
+    'in September. Deeper than that is genuinely ahead.</p>' });
 
-  if(!storageOK){
-    html += '<p class="muted">Note: progress isn\u2019t saving in this window, so these numbers cover today only.</p>';
-  }
-
-  html +=
-    '<div class="row">' +
-      '<button class="btn" id="sheetClose">Back to the dive</button>' +
-      '<button class="btn danger" id="sheetReset">Erase all progress</button>' +
-    '</div></div>';
-
-  $("overlay").innerHTML = html;
-  $("sheetClose").onclick = closeSheet;
-  $("sheetReset").onclick = async function(){
-    if(!confirm("Erase his saved progress and start over?")) return;
-    save = { maxDepth:0, totalRight:0, totalTried:0, facts:{}, sessions:1, seconds:0 };
-    try{ await window.storage.delete("deepdive-progress"); }catch(e){}
-    depth = 0; streak = 0; zoneIdx = 0;
-    applyZone(); setDepth(0); paintStreak(); closeSheet();
+  return {
+    title: "How he\u2019s doing",
+    intro: "Everything here is measured while he plays \u2014 nothing is a test.",
+    stats: [
+      { value:Math.round(save.maxDepth) + "m", label:"Deepest dive" },
+      { value:acc + "%", label:"Correct" },
+      { value:save.totalTried, label:"Problems tried" },
+      { value:mins, label:"Minutes played" }
+    ],
+    sections: sections,
+    settings: [
+      { label:"Start him at",
+        hint:"Every session starts at the surface. Drop him back to the zone he was working in.",
+        value:String(zoneIdx),
+        options:ZONES.map(function(z,i){ return { value:String(i), label:z.name.replace(/ Zone$/,"") }; }),
+        onPick:function(v){ jumpToZone(+v); } }
+    ],
+    footer: Kit.store.ok ? "" :
+      '<p class="muted">Note: progress isn\u2019t saving in this window, so these numbers cover today only.</p>',
+    closeLabel: "Back to the dive",
+    onClose: function(){ locked = false; nextProblem(); },
+    reset: {
+      label: "Erase all progress",
+      confirm: "Erase his saved progress and start over?",
+      run: function(){
+        save = { maxDepth:0, totalRight:0, totalTried:0, facts:{}, sessions:1, seconds:0 };
+        Kit.store.del(KEY);
+        depth = 0; streak = 0; zoneIdx = 0;
+        applyZone(); setDepth(0); paintStreak();
+        locked = false; nextProblem();
+      }
+    }
   };
 }
 
@@ -716,7 +707,7 @@ function buildBubbles(){
 }
 
 document.addEventListener("keydown", function(e){
-  if($("overlay").innerHTML !== "") return;
+  if($("overlay").innerHTML !== "" || Grownups.isOpen()) return;
   if(e.key >= "0" && e.key <= "9") press(e.key);
   else if(e.key === "Backspace"){ e.preventDefault(); press("back"); }
   else if(e.key === "Enter") press("go");
@@ -729,7 +720,7 @@ setInterval(function(){
   save.seconds += 20; sessionStart = Date.now(); persist();
 }, 20000);
 
-$("parentLink").onclick = function(){ locked = true; parentGate(); };
+$("parentLink").onclick = function(){ locked = true; Grownups.open(panelConfig); };
 
 buildTicks(); buildPad(); buildBubbles();
 applyZone(); setDepth(0); paintStreak();

@@ -7,6 +7,9 @@
 <meta name="description" content="Letter recognition that starts with the letters in his own name.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128642;</text></svg>">
 <script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
 <style>
   :root{
     --sky:#7FC5E3;
@@ -19,6 +22,21 @@
     --cream:#FBF3E2;
     --rail:#6B4A33;
     --font: 'Avenir Next', 'Futura', 'Trebuchet MS', Verdana, sans-serif;
+
+    /* the shared grown-ups panel, in this game's colours */
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:rgba(58,34,24,.62);
+    --kit-paper:var(--cream);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(58,34,24,.06);
+    --kit-accent:var(--engine);
+    --kit-accent-ink:var(--cream);
+    --kit-danger:var(--signal);
+    --kit-danger-ink:var(--cream);
+    --kit-scrim:rgba(58,34,24,.55);
+    --kit-focus:#fff;
+    --kit-radius:18px;
   }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -60,7 +78,7 @@
     background:transparent;color:var(--ink);border:2px solid rgba(58,34,24,.35);
     border-bottom-width:2px;font-weight:600;
   }
-  .btn:focus-visible, .car:focus-visible, .toggle:focus-visible{
+  .btn:focus-visible, .car:focus-visible{
     outline:4px solid #fff; outline-offset:3px;
   }
 
@@ -254,20 +272,7 @@
   }
   #toast.show{opacity:1;transform:translateX(-50%) scale(1);}
 
-  /* ---------- grown-ups panel ---------- */
-  #panel{
-    position:absolute;inset:0;z-index:40;display:none;
-    background:rgba(58,34,24,.55);
-    padding:1rem;overflow:auto;
-  }
-  #panel.open{display:block;}
-  #panelCard{
-    background:var(--cream);border:3px solid var(--ink);border-radius:18px;
-    max-width:640px;margin:0 auto;padding:1.2rem;
-  }
-  #panelCard h2{margin:.1rem 0 .4rem;font-size:1.4rem;}
-  #panelCard h3{margin:1.3rem 0 .5rem;font-size:1rem;font-weight:700;}
-  #panelCard p{margin:.3rem 0;font-size:.9rem;line-height:1.5;}
+  /* ---------- letter grid (lives inside the shared panel) ---------- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px;}
   .toggle{
     font-family:var(--font);font-weight:700;font-size:1.25rem;
@@ -278,15 +283,7 @@
   .toggle.on{background:var(--engine);color:var(--cream);border-color:var(--ink);}
   .toggle.mastered{background:var(--wheat);color:var(--ink);border-color:var(--ink);}
   .toggle small{font-size:.55rem;font-weight:600;letter-spacing:.04em;opacity:.85;}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.6rem 0;font-size:.95rem;}
-  .seg{display:flex;gap:6px;}
-  .seg button{
-    font-family:var(--font);font-weight:700;font-size:.9rem;
-    border:2px solid rgba(58,34,24,.35);background:#fff;color:var(--ink);
-    border-radius:10px;padding:.4em .8em;cursor:pointer;
-  }
-  .seg button.on{background:var(--ink);color:var(--cream);}
-  #panelActions{display:flex;gap:.6rem;margin-top:1.3rem;flex-wrap:wrap;}
+  .toggle:focus-visible{outline:4px solid #fff;outline-offset:3px;}
 
   @media (prefers-reduced-motion: reduce){
     *{animation:none !important; transition:none !important;}
@@ -330,63 +327,6 @@
     <button class="btn" id="startBtn">Start the train</button>
   </div>
 
-  <!-- ===== grown-ups ===== -->
-  <div id="panel" aria-hidden="true">
-    <div id="panelCard">
-      <h2>Grown-ups</h2>
-      <p>Tap a letter to switch it on or off. Green letters are in play. Gold letters he's got three in a row — they stay in as distractors.</p>
-      <div class="row">
-        <span>Letter case<br><small style="opacity:.7">Mix brings each lowercase in once he's learned its capital. ABC and abc flip everything at once.</small></span>
-        <div class="seg" id="caseSeg">
-          <button data-k="upper">ABC</button>
-          <button data-k="mix">Mix</button>
-          <button data-k="lower">abc</button>
-        </div>
-      </div>
-      <div class="grid" id="letterGrid"></div>
-
-      <h3>How it runs</h3>
-      <div class="row">
-        <span>Cars to choose from</span>
-        <div class="seg" id="choiceSeg">
-          <button data-c="auto">Auto</button>
-          <button data-c="2">2</button>
-          <button data-c="3">3</button>
-          <button data-c="4">4</button>
-        </div>
-      </div>
-      <div class="row">
-        <span>Show the letter in the prompt<br><small style="opacity:.7">Off means he has to recall it, not match it</small></span>
-        <div class="seg" id="targetSeg">
-          <button data-t="1">Show</button>
-          <button data-t="0">Hide</button>
-        </div>
-      </div>
-      <div class="row">
-        <span>Say the letter out loud</span>
-        <div class="seg" id="soundSeg">
-          <button data-s="1">On</button>
-          <button data-s="0">Off</button>
-        </div>
-      </div>
-      <div class="row">
-        <span>Add a new letter when one is learned</span>
-        <div class="seg" id="autoSeg">
-          <button data-a="1">On</button>
-          <button data-a="0">Off</button>
-        </div>
-      </div>
-
-      <h3>Where he's at</h3>
-      <p id="statsLine">No rounds yet.</p>
-
-      <div id="panelActions">
-        <button class="btn" id="closePanel">Back to the train</button>
-        <button class="btn quiet" id="resetBtn">Start over</button>
-      </div>
-    </div>
-  </div>
-
 </div>
 
 <script>
@@ -419,18 +359,9 @@
   const $ = s => document.querySelector(s);
   const yard = $("#yard"), train = $("#train"), toast = $("#toast");
 
-  /* ---------------- storage (falls back to memory) ---------------- */
-  const store = {
-    mem:{},
-    async get(k){
-      try { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
-      catch(e){ return k in this.mem ? this.mem[k] : null; }
-    },
-    async set(k,v){
-      this.mem[k] = v;
-      try { await window.storage.set(k, JSON.stringify(v)); } catch(e){}
-    }
-  };
+  /* ---------------- storage ---------------- */
+  const store = Kit.store;
+  const KEY = "lettertrain:v1";
 
   /* ---------------- state ---------------- */
   let S = null;
@@ -465,49 +396,20 @@
     };
   }
 
-  const save = () => store.set("lettertrain:v1", S);
+  const save = () => store.set(KEY, S);
+
+  // Here the one toggle covers the spoken letter names; the little train
+  // noises always play.
+  function applySettings(){ Kit.speech.enabled = S.sound; }
 
   /* ---------------- speech ---------------- */
-  let voice = null;
-  function pickVoice(){
-    try{
-      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
-      voice = vs.find(v => /female|samantha|karen|moira|zira/i.test(v.name)) || vs[0] || null;
-    }catch(e){}
-  }
-  try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
-
-  function say(text, rate){
-    if (!S || !S.sound) return;
-    try{
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = rate || 0.88;
-      u.pitch = 1.1;
-      if (voice) u.voice = voice;
-      speechSynthesis.speak(u);
-    }catch(e){}
-  }
+  const say = (text, rate) => Kit.say(text, rate || 0.88, 1.1);
   // Letter names read more reliably with a trailing period, and lowercase glyphs
   // get spoken as words ("a") unless they go to the voice as capitals.
   const sayLetter = g => say(g.toUpperCase() + ".", 0.75);
 
   /* ---------------- sounds (WebAudio, no files) ---------------- */
-  let actx = null;
-  function audio(){
-    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); return actx; }
-    catch(e){ return null; }
-  }
-  function tone(freq, dur, when, type, vol){
-    const a = audio(); if(!a) return;
-    const o = a.createOscillator(), g = a.createGain();
-    o.type = type||"triangle"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, a.currentTime+when);
-    g.gain.exponentialRampToValueAtTime(vol||0.18, a.currentTime+when+0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+when+dur);
-    o.connect(g); g.connect(a.destination);
-    o.start(a.currentTime+when); o.stop(a.currentTime+when+dur+0.05);
-  }
+  const tone = Kit.tone;
   const chime  = () => { tone(523,0.16,0); tone(659,0.16,0.12); tone(784,0.3,0.24); };
   const whistle= () => { tone(392,0.5,0,"sawtooth",0.12); tone(587,0.7,0.08,"sawtooth",0.12); };
   const clunk  = () => tone(180,0.12,0,"square",0.1);
@@ -635,8 +537,9 @@
   }
 
   function renderTrain(){
+    // Called once behind the setup screen, before there's any state.
     train.innerHTML = ENGINE_SVG;
-    S.cargo.forEach((L,i) => train.appendChild(miniCar(L,i)));
+    if (S) S.cargo.forEach((L,i) => train.appendChild(miniCar(L,i)));
   }
 
   function renderCargoStrip(){
@@ -789,18 +692,20 @@
   nameInput.addEventListener("input", drawNameTrain);
 
   $("#startBtn").addEventListener("click", async () => {
-    audio();
+    Kit.audio();
     S = freshState(nameInput.value);
+    applySettings();
     await save();
     $("#setup").style.display = "none";
-    renderTrain(); renderCargoStrip(); syncPanel();
+    renderTrain(); renderCargoStrip();
     newRound();
   });
 
-  /* ---------------- panel ---------------- */
-  function syncPanel(){
-    const grid = $("#letterGrid");
-    grid.innerHTML = "";
+  /* ---------------- grown-ups ---------------- */
+  // Shape and gate live in shared/grownups.js; this builds the content.
+  function letterGrid(){
+    const grid = document.createElement("div");
+    grid.className = "grid";
     const mix = S.caseMode === "mix";
     const shown = mix ? GLYPHS : (S.caseMode === "lower" ? LOWER : ALPHABET);
     shown.forEach(g => {
@@ -823,55 +728,74 @@
           d.active = true;
         }
         if (!playableGlyphs().length) d.active = true;
-        syncPanel(); save();
+        save();
+        Grownups.refresh();
       });
       grid.appendChild(b);
     });
+    return grid;
+  }
 
-    document.querySelectorAll("#caseSeg button").forEach(b => b.classList.toggle("on", b.dataset.k === S.caseMode));
-    document.querySelectorAll("#choiceSeg button").forEach(b => b.classList.toggle("on", b.dataset.c === String(S.choiceMode)));
-    document.querySelectorAll("#targetSeg button").forEach(b => b.classList.toggle("on", b.dataset.t === (S.showTarget ? "1" : "0")));
-    document.querySelectorAll("#soundSeg button").forEach(b => b.classList.toggle("on", b.dataset.s === (S.sound ? "1" : "0")));
-    document.querySelectorAll("#autoSeg button").forEach(b => b.classList.toggle("on", b.dataset.a === (S.autoIntroduce ? "1" : "0")));
-
+  function panelConfig(){
     const learned = GLYPHS.filter(g => S.letters[g].mastered);
     const inplay = learningGlyphs();
     const total = S.totalRight + S.totalWrong;
-    $("#statsLine").textContent = total
-      ? `${S.totalRight} of ${total} right this run. Working on ${inplay.join(" ") || "—"}. Learned: ${learned.join(" ") || "none yet"}.`
-      : "No rounds yet.";
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.totalRight + "/" + total, label:"Right this run" },
+        { value:learned.length, label:"Letters learned" },
+        { value:inplay.length, label:"Working on" }
+      ],
+      sections: [
+        { title:"Letters in play",
+          html:'<p class="gu-muted">Tap a letter to switch it on or off. Green letters are in play. ' +
+               "Gold letters he’s got three in a row — they stay in as distractors.</p>" },
+        { node: letterGrid() },
+        { title:"Where he’s at",
+          html:"<p>" + (total
+            ? `Working on ${inplay.join(" ") || "—"}. Learned: ${learned.join(" ") || "none yet"}.`
+            : "No rounds yet.") + "</p>" +
+            '<p class="gu-muted">A letter counts as learned after three right in a row. It stays in the ' +
+            "yard afterwards as a distractor, which is what keeps the learned ones from fading.</p>" }
+      ],
+      settings: [
+        { label:"Letter case",
+          hint:"Mix brings each lowercase in once he’s learned its capital. ABC and abc flip everything at once.",
+          value:S.caseMode,
+          options:[{value:"upper",label:"ABC"},{value:"mix",label:"Mix"},{value:"lower",label:"abc"}],
+          onPick(v){ S.caseMode = v; save(); } },
+        { label:"Cars to choose from", value:String(S.choiceMode),
+          options:[{value:"auto",label:"Auto"},{value:"2",label:"2"},{value:"3",label:"3"},{value:"4",label:"4"}],
+          onPick(v){ S.choiceMode = v; save(); } },
+        { label:"Show the letter in the prompt",
+          hint:"Off means he has to recall it, not match it",
+          value:S.showTarget ? "1" : "0",
+          options:[{value:"1",label:"Show"},{value:"0",label:"Hide"}],
+          onPick(v){ S.showTarget = v === "1"; if (S.target) updatePrompt(); save(); } },
+        { label:"Say the letter out loud", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); save(); } },
+        { label:"Add a new letter when one is learned", value:S.autoIntroduce ? "1" : "0", options:onOff,
+          onPick(v){ S.autoIntroduce = v === "1"; save(); } }
+      ],
+      closeLabel: "Back to the train",
+      onClose(){ newRound(false); },
+      reset: {
+        label: "Start over",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(S.name);
+          applySettings(); save();
+          renderTrain(); renderCargoStrip(); newRound();
+        }
+      }
+    };
   }
 
-  $("#grownups").addEventListener("click", () => { syncPanel(); $("#panel").classList.add("open"); });
-  $("#closePanel").addEventListener("click", () => { $("#panel").classList.remove("open"); newRound(false); });
-  $("#resetBtn").addEventListener("click", async () => {
-    S = freshState(S.name); await save();
-    $("#panel").classList.remove("open");
-    renderTrain(); renderCargoStrip(); newRound();
-  });
-
-  $("#caseSeg").addEventListener("click", e => {
-    const b = e.target.closest("button"); if(!b) return;
-    S.caseMode = b.dataset.k; syncPanel(); save();
-  });
-  $("#choiceSeg").addEventListener("click", e => {
-    const b = e.target.closest("button"); if(!b) return;
-    S.choiceMode = b.dataset.c; syncPanel(); save();
-  });
-  $("#targetSeg").addEventListener("click", e => {
-    const b = e.target.closest("button"); if(!b) return;
-    S.showTarget = b.dataset.t === "1";
-    if (S.target) updatePrompt();
-    syncPanel(); save();
-  });
-  $("#soundSeg").addEventListener("click", e => {
-    const b = e.target.closest("button"); if(!b) return;
-    S.sound = b.dataset.s === "1"; syncPanel(); save();
-  });
-  $("#autoSeg").addEventListener("click", e => {
-    const b = e.target.closest("button"); if(!b) return;
-    S.autoIntroduce = b.dataset.a === "1"; syncPanel(); save();
-  });
+  $("#grownups").addEventListener("click", () => Grownups.open(panelConfig));
 
   $("#prompt").addEventListener("click", () => { if (S) sayLetter(S.target); });
   $("#prompt").addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (S) sayLetter(S.target); }});
@@ -891,8 +815,9 @@
       });
       if (!S.caseMode) S.caseMode = "mix";
       if (!S.lastIntroCase) S.lastIntroCase = "upper";
+      applySettings();
       $("#setup").style.display = "none";
-      renderTrain(); renderCargoStrip(); syncPanel();
+      renderTrain(); renderCargoStrip();
       newRound(false);
     } else {
       renderTrain();

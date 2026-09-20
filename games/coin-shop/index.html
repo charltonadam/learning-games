@@ -7,6 +7,9 @@
 <meta name="description" content="Making amounts out of pennies, nickels, dimes and quarters.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129689;</text></svg>">
 <script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
 <style>
   :root{
     --wall:#FFF4E0;
@@ -21,6 +24,21 @@
     --silver:#D9DEE4;
     --copper:#C97F3E;
     --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+
+    /* the shared grown-ups panel, in this shop's colours */
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:rgba(58,34,24,.62);
+    --kit-paper:var(--cream);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(58,34,24,.06);
+    --kit-accent:var(--green);
+    --kit-accent-ink:var(--cream);
+    --kit-danger:var(--pop);
+    --kit-danger-ink:var(--cream);
+    --kit-scrim:rgba(58,34,24,.6);
+    --kit-focus:var(--gold);
+    --kit-radius:20px;
   }
 
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -56,7 +74,7 @@
     border:2px solid rgba(58,34,24,.35);border-bottom-width:2px;
   }
   .btn.danger{background:var(--pop);}
-  .btn:focus-visible,.coin:focus-visible,.seg button:focus-visible{
+  .btn:focus-visible,.coin:focus-visible{
     outline:4px solid var(--gold);outline-offset:3px;
   }
 
@@ -234,27 +252,9 @@
     max-height:92dvh;overflow:auto;margin:auto;
   }
   .sheet h2{margin:.1rem 0 .5rem;font-size:1.45rem;}
-  .sheet h3{margin:1.2rem 0 .4rem;font-size:1rem;}
   .sheet p{margin:.35rem 0;font-size:.92rem;line-height:1.5;}
-  .muted{color:rgba(58,34,24,.62);}
   .celebrate{text-align:center;}
   .celebrate .big{font-size:3.4rem;line-height:1.1;}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.7rem 0;font-size:.92rem;}
-  .row input{
-    font-family:var(--font);font-size:1.1rem;font-weight:700;width:5em;
-    padding:.35em .5em;border:3px solid var(--ink);border-radius:10px;background:#fff;
-  }
-  .seg{display:flex;gap:6px;flex-wrap:wrap;}
-  .seg button{
-    font-family:var(--font);font-weight:700;font-size:.85rem;
-    border:2px solid rgba(58,34,24,.35);background:#fff;color:var(--ink);
-    border-radius:10px;padding:.4em .75em;cursor:pointer;
-  }
-  .seg button.on{background:var(--ink);color:var(--cream);}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:.6rem 0;}
-  .stat{background:rgba(58,34,24,.06);border-radius:12px;padding:.6em .7em;}
-  .stat b{display:block;font-size:1.4rem;}
-  .stat span{font-size:.75rem;font-weight:700;opacity:.65;}
   .sheet .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.2rem;}
 
   @media (max-height:560px){
@@ -373,28 +373,17 @@
   const $ = s => document.querySelector(s);
   const tray = $("#tray"), rack = $("#rack"), overlay = $("#overlay");
 
-  const ri = (lo,hi) => lo + Math.floor(Math.random()*(hi-lo+1));
-  const pick = a => a[Math.floor(Math.random()*a.length)];
-
-  /* ---------------- storage ---------------- */
-  const store = {
-    mem:{}, ok:true,
-    async get(k){
-      try{ const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
-      catch(e){ this.ok = false; return this.mem[k] || null; }
-    },
-    async set(k,v){
-      this.mem[k] = v;
-      try{ await window.storage.set(k, JSON.stringify(v)); }catch(e){ this.ok = false; }
-    }
-  };
+  const { ri, pick, store, say } = Kit;
 
   let S = null;
   let sessionStart = Date.now();
-  let saveTimer = null;
-  function save(){
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => store.set("coinshop:v1", S), 350);
+  const KEY = "coinshop:v1";
+  const save = Kit.debounce(() => store.set(KEY, S), 350);
+
+  // The persisted toggles are the source of truth; Kit just mirrors them.
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = S.voice;
   }
 
   function freshState(){
@@ -416,48 +405,12 @@
   }
 
   /* ---------------- sound ---------------- */
-  let actx = null;
-  function audio(){
-    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); return actx; }
-    catch(e){ return null; }
-  }
-  function tone(freq, dur, when, type, vol){
-    if (!S || !S.sound) return;
-    const a = audio(); if(!a) return;
-    const o = a.createOscillator(), g = a.createGain();
-    o.type = type || "triangle"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, a.currentTime + when);
-    g.gain.exponentialRampToValueAtTime(vol || 0.16, a.currentTime + when + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + when + dur);
-    o.connect(g); g.connect(a.destination);
-    o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05);
-  }
+  const tone = Kit.tone;
   const clink   = v => { tone(880 + v*8, 0.07, 0, "triangle", 0.11); tone(1320 + v*8, 0.05, 0.03, "sine", 0.07); };
   const unclink = () => tone(420, 0.07, 0, "triangle", 0.09);
   const chaching= () => { tone(1046,0.1,0,"sine",0.15); tone(1568,0.1,0.08,"sine",0.15); tone(2093,0.35,0.16,"sine",0.12); };
   const buzz    = () => { tone(190,0.16,0,"square",0.09); tone(150,0.2,0.12,"square",0.09); };
   const fanfare = () => { [523,659,784,1046].forEach((f,i) => tone(f,0.28,i*0.13,"triangle",0.15)); };
-
-  /* ---------------- voice ---------------- */
-  let voice = null;
-  function pickVoice(){
-    try{
-      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
-      voice = vs.find(v => /female|samantha|karen|moira|zira/i.test(v.name)) || vs[0] || null;
-    }catch(e){}
-  }
-  try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
-
-  function say(text, rate){
-    if (!S || !S.voice) return;
-    try{
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = rate || 0.9; u.pitch = 1.05;
-      if (voice) u.voice = voice;
-      speechSynthesis.speak(u);
-    }catch(e){}
-  }
 
   /* ---------------- money helpers ---------------- */
   function priceText(c){
@@ -824,31 +777,8 @@
   }
 
   /* ---------------- grown-ups ---------------- */
-  function gate(){
-    S.locked = true;
-    const a = ri(3,9), b = ri(3,9);
-    overlay.innerHTML =
-      '<div class="sheet">' +
-        "<h2>Grown-ups only</h2>" +
-        '<p class="muted">Quick check so this stays your page: what is ' + a + " × " + b + "?</p>" +
-        '<div class="row" style="justify-content:flex-start">' +
-          '<input id="gateIn" inputmode="numeric" autocomplete="off">' +
-          '<button class="btn" id="gateGo">Open</button>' +
-          '<button class="btn quiet" id="gateNo">Back</button>' +
-        "</div>" +
-        '<p id="gateMsg" class="muted"></p>' +
-      "</div>";
-    overlay.classList.add("open");
-    $("#gateIn").focus();
-    $("#gateNo").onclick = closeOverlay;
-    $("#gateGo").onclick = () => {
-      if (+$("#gateIn").value === a*b) panel();
-      else { $("#gateMsg").textContent = "Not quite — try again."; $("#gateIn").value = ""; $("#gateIn").focus(); }
-    };
-    $("#gateIn").onkeydown = e => { if (e.key === "Enter") $("#gateGo").click(); };
-  }
-
-  function panel(){
+  // Shape and gate live in shared/grownups.js; this only supplies the content.
+  function panelConfig(){
     const firstPct = S.purchases ? Math.round(S.firstTry / S.purchases * 100) : 0;
     const tidyPct  = S.purchases ? Math.round(S.optimalPays / S.purchases * 100) : 0;
     const mins = Math.round((S.seconds + (Date.now()-sessionStart)/1000) / 60);
@@ -858,116 +788,87 @@
       3:"Same rule, no counter. He's adding coins in his head before he hands them over."
     }[S.stage];
 
-    let html =
-      '<div class="sheet">' +
-      "<h2>How he’s doing</h2>" +
-      '<p class="muted">All of this comes from ordinary play — nothing here is a test.</p>' +
-      '<div class="stats">' +
-        "<div class=\"stat\"><b>" + S.purchases + "</b><span>Things bought</span></div>" +
-        "<div class=\"stat\"><b>" + firstPct + "%</b><span>Paid first try</span></div>" +
-        "<div class=\"stat\"><b>" + tidyPct + "%</b><span>Fewest coins</span></div>" +
-        "<div class=\"stat\"><b>" + mins + "</b><span>Minutes played</span></div>" +
-      "</div>" +
-      "<h3>Stage " + S.stage + " — " + STAGE_WHAT[S.stage] + "</h3>" +
-      "<p>" + stageBlurb + "</p>" +
-      '<p class="muted">Prices right now: ' + LEVELS[S.level].note + ". That rung moves on its own too — " +
-      "five clean buys out of six and the prices step up, two out of six and they step back down.</p>";
+    const sections = [{
+      title: "Stage " + S.stage + " — " + STAGE_WHAT[S.stage],
+      html: "<p>" + stageBlurb + "</p>" +
+            '<p class="gu-muted">Prices right now: ' + LEVELS[S.level].note + ". That rung moves on its own too — " +
+            "five clean buys out of six and the prices step up, two out of six and they step back down.</p>"
+    }];
 
     // Which coins he actually uses.
     const used = VALUES.reduce((a,v) => a + S.coinUse[v], 0);
-    html += "<h3>Coins he reaches for</h3>";
+    let coins;
     if (used < 12){
-      html += '<p class="muted">Not enough shopping yet. After a dozen or so purchases this shows which coins he trusts.</p>';
+      coins = '<p class="gu-muted">Not enough shopping yet. After a dozen or so purchases this shows which coins he trusts.</p>';
     } else {
-      html += '<p>' + BIG_FIRST.map(v =>
-        coinName(v) + "s: " + Math.round(S.coinUse[v]/used*100) + "%"
-      ).join(" · ") + "</p>";
+      coins = "<p>" + BIG_FIRST.map(v => coinName(v) + "s: " + Math.round(S.coinUse[v]/used*100) + "%").join(" · ") + "</p>";
       const worst = [25,10,5].filter(v => S.skipped[v] >= 3)
         .sort((a,b) => S.skipped[b] - S.skipped[a])[0];
-      if (worst){
-        html += "<p>He keeps walking past the <b>" + coinName(worst).toLowerCase() + "</b> — " + S.skipped[worst] +
-                " times he built the amount out of smaller coins when " + (worst === 25 ? "a quarter" : "a " + coinName(worst).toLowerCase()) +
-                " would have done it. That's the usual sticking point: counting by 25s and 10s is a different skill from counting by 1s, " +
-                "and real-life change is mostly quarters.</p>";
-      } else {
-        html += '<p class="muted">He spreads his picks sensibly across all four coins.</p>';
+      coins += worst
+        ? "<p>He keeps walking past the <b>" + coinName(worst).toLowerCase() + "</b> — " + S.skipped[worst] +
+          " times he built the amount out of smaller coins when " + (worst === 25 ? "a quarter" : "a " + coinName(worst).toLowerCase()) +
+          " would have done it. That's the usual sticking point: counting by 25s and 10s is a different skill from counting by 1s, " +
+          "and real-life change is mostly quarters.</p>"
+        : '<p class="gu-muted">He spreads his picks sensibly across all four coins.</p>';
+    }
+    sections.push({ title:"Coins he reaches for", html:coins });
+
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.purchases, label:"Things bought" },
+        { value:firstPct + "%", label:"Paid first try" },
+        { value:tidyPct + "%",  label:"Fewest coins" },
+        { value:mins, label:"Minutes played" }
+      ],
+      sections: sections,
+      settings: [
+        { label:"Stage", hint:"Auto moves him along on its own", value:S.stageMode,
+          options:[{value:"auto",label:"Auto"},{value:"1",label:"1"},{value:"2",label:"2"},{value:"3",label:"3"}],
+          onPick(v){
+            S.stageMode = v;
+            if (v !== "auto") S.stage = +v;
+            S.hist = []; renderStage(); save();
+          } },
+        { label:"Price difficulty", value:String(S.level),
+          options:LEVELS.map((l,i) => ({ value:String(i), label:String(i+1) })),
+          onPick(v){ S.level = +v; S.levelHist = []; save(); } },
+        { label:"Coin sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); save(); } },
+        { label:"Say the price out loud", value:S.voice ? "1" : "0", options:onOff,
+          onPick(v){ S.voice = v === "1"; applySettings(); save(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, so these numbers cover today only.</p>',
+      closeLabel: "Back to the shop",
+      onClose(){ S.locked = false; renderTotal(); newItem(false); },
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          renderStage(); renderBag();
+          S.locked = false; newItem();
+        }
       }
-    }
-
-    html +=
-      "<h3>Settings</h3>" +
-      '<div class="row"><span>Stage<br><small class="muted">Auto moves him along on its own</small></span>' +
-        '<div class="seg" id="stageSeg">' +
-          '<button data-s="auto">Auto</button><button data-s="1">1</button>' +
-          '<button data-s="2">2</button><button data-s="3">3</button>' +
-        "</div></div>" +
-      '<div class="row"><span>Price difficulty</span>' +
-        '<div class="seg" id="levelSeg">' +
-          LEVELS.map((l,i) => '<button data-l="' + i + '">' + (i+1) + "</button>").join("") +
-        "</div></div>" +
-      '<div class="row"><span>Coin sounds</span>' +
-        '<div class="seg" id="soundSeg"><button data-x="1">On</button><button data-x="0">Off</button></div></div>' +
-      '<div class="row"><span>Say the price out loud</span>' +
-        '<div class="seg" id="voiceSeg"><button data-x="1">On</button><button data-x="0">Off</button></div></div>';
-
-    if (!store.ok){
-      html += '<p class="muted">Heads up: progress isn’t saving in this window, so these numbers cover today only.</p>';
-    }
-
-    html +=
-      '<div class="actions">' +
-        '<button class="btn" id="closeP">Back to the shop</button>' +
-        '<button class="btn danger" id="resetP">Erase all progress</button>' +
-      "</div></div>";
-
-    overlay.innerHTML = html;
-    overlay.classList.add("open");
-
-    const mark = (sel, val) => document.querySelectorAll(sel + " button")
-      .forEach(b => b.classList.toggle("on", (b.dataset.s || b.dataset.l || b.dataset.x) === String(val)));
-    mark("#stageSeg", S.stageMode);
-    mark("#levelSeg", S.level);
-    mark("#soundSeg", S.sound ? 1 : 0);
-    mark("#voiceSeg", S.voice ? 1 : 0);
-
-    $("#stageSeg").onclick = e => {
-      const b = e.target.closest("button"); if(!b) return;
-      S.stageMode = b.dataset.s;
-      if (S.stageMode !== "auto") S.stage = +S.stageMode;
-      S.hist = []; renderStage(); save(); mark("#stageSeg", S.stageMode);
-    };
-    $("#levelSeg").onclick = e => {
-      const b = e.target.closest("button"); if(!b) return;
-      S.level = +b.dataset.l; S.levelHist = []; save(); mark("#levelSeg", S.level);
-    };
-    $("#soundSeg").onclick = e => {
-      const b = e.target.closest("button"); if(!b) return;
-      S.sound = b.dataset.x === "1"; save(); mark("#soundSeg", S.sound ? 1 : 0);
-    };
-    $("#voiceSeg").onclick = e => {
-      const b = e.target.closest("button"); if(!b) return;
-      S.voice = b.dataset.x === "1"; save(); mark("#voiceSeg", S.voice ? 1 : 0);
-    };
-    $("#closeP").onclick = () => { closeOverlay(); renderTotal(); newItem(false); };
-    $("#resetP").onclick = async () => {
-      if (!confirm("Erase his saved progress and start over?")) return;
-      S = freshState(); S.sessions = 1;
-      await store.set("coinshop:v1", S);
-      renderStage(); renderBag(); closeOverlay(); newItem();
     };
   }
 
   /* ---------------- wiring ---------------- */
-  $("#payBtn").addEventListener("click", () => { audio(); pay(); });
+  $("#payBtn").addEventListener("click", () => { Kit.audio(); pay(); });
   $("#clearBtn").addEventListener("click", clearTray);
-  $("#grownups").addEventListener("click", gate);
+  $("#grownups").addEventListener("click", () => { S.locked = true; Grownups.open(panelConfig); });
   $("#item").addEventListener("click", () => { if (S && S.item) say(S.item[1] + ". " + priceWords(S.price) + "."); });
   $("#item").addEventListener("keydown", e => {
     if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $("#item").click(); }
   });
 
   document.addEventListener("keydown", e => {
-    if (!S || overlay.classList.contains("open")) return;
+    if (!S || overlay.classList.contains("open") || Grownups.isOpen()) return;
     if (e.key === "1") addCoin(1);
     else if (e.key === "5") addCoin(5);
     else if (e.key === "d" || e.key === "D") addCoin(10);
@@ -978,14 +879,15 @@
 
   setInterval(() => { if (S) { S.seconds += 15; save(); } }, 15000);
   window.addEventListener("beforeunload", () => {
-    if (S) store.set("coinshop:v1", S);
+    if (S) store.set(KEY, S);
   });
 
   /* ---------------- boot ---------------- */
   (async function boot(){
-    const saved = await store.get("coinshop:v1");
+    const saved = await store.get(KEY);
     S = saved && saved.coinUse ? Object.assign(freshState(), saved) : freshState();
     S.locked = false;
+    applySettings();
     S.sessions = (S.sessions || 0) + 1;
     sessionStart = Date.now();
 

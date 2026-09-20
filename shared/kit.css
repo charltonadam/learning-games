@@ -1,0 +1,91 @@
+/* Shared chrome for the grown-ups panel.
+   Every class here is prefixed gu- so it can't collide with a game's own CSS.
+   A game themes the panel by setting these vars in :root; the fallbacks are
+   what you get if it sets nothing. Load this BEFORE the game's own <style>,
+   so the game can override anything it wants to. */
+:root{
+  --kit-font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+  --kit-ink:#25303A;
+  --kit-muted:#5E7080;
+  --kit-paper:#FFFCF3;
+  --kit-line:#25303A;
+  --kit-tile:rgba(37,48,58,.06);
+  --kit-accent:#2E7D5B;
+  --kit-accent-ink:#fff;
+  --kit-danger:#D6402E;
+  --kit-danger-ink:#fff;
+  --kit-scrim:rgba(20,26,32,.6);
+  --kit-focus:#E8B84B;
+  --kit-on:var(--kit-ink);          /* the chosen button in a settings row */
+  --kit-on-ink:var(--kit-paper);
+  --kit-radius:18px;
+}
+
+.gu-overlay{
+  position:fixed;inset:0;z-index:999;display:none;
+  background:var(--kit-scrim);
+  padding:1rem;overflow:auto;
+  font-family:var(--kit-font);color:var(--kit-ink);
+}
+.gu-overlay.open{display:flex;align-items:center;justify-content:center;}
+
+.gu-sheet{
+  background:var(--kit-paper);
+  border:4px solid var(--kit-line);
+  border-radius:var(--kit-radius);
+  width:100%;max-width:640px;margin:auto;
+  padding:1.2rem 1.3rem 1.3rem;
+  max-height:92dvh;overflow:auto;
+  font-size:.95rem;line-height:1.5;
+}
+.gu-sheet h2{margin:.1rem 0 .45rem;font-size:1.45rem;line-height:1.15;}
+.gu-sheet h3{margin:1.25rem 0 .4rem;font-size:1rem;}
+.gu-sheet p{margin:.35rem 0;}
+.gu-muted{color:var(--kit-muted);}
+
+.gu-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin:.7rem 0 .2rem;}
+.gu-stat{background:var(--kit-tile);border-radius:12px;padding:.6em .7em;}
+.gu-stat b{display:block;font-size:1.4rem;line-height:1.15;}
+.gu-stat span{font-size:.75rem;font-weight:700;color:var(--kit-muted);}
+
+.gu-row{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1rem;margin:.7rem 0;
+}
+.gu-row > span{flex:1;}
+.gu-hint{display:block;font-size:.8rem;color:var(--kit-muted);margin-top:.15em;}
+
+.gu-seg{display:flex;gap:6px;flex-wrap:wrap;}
+.gu-seg button{
+  font-family:var(--kit-font);font-weight:700;font-size:.85rem;
+  border:2px solid rgba(37,48,58,.35);background:#fff;color:var(--kit-ink);
+  border-radius:10px;padding:.4em .75em;cursor:pointer;
+}
+.gu-seg button.on{background:var(--kit-on);color:var(--kit-on-ink);}
+
+.gu-gate{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.6rem 0;}
+.gu-gate input{
+  font-family:var(--kit-font);font-size:1.15rem;font-weight:700;
+  width:5em;padding:.35em .5em;text-align:center;
+  border:3px solid var(--kit-line);border-radius:10px;background:#fff;color:var(--kit-ink);
+}
+
+.gu-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.2rem;}
+
+/* Structure only. A game's own .btn rules load later and win on colour,
+   so the panel's buttons look like the rest of that game. */
+.gu-btn{
+  font-family:var(--kit-font);font-size:1rem;font-weight:700;
+  background:var(--kit-accent);color:var(--kit-accent-ink);
+  border:none;border-bottom:4px solid rgba(0,0,0,.28);
+  border-radius:14px;padding:.7em 1.4em;cursor:pointer;
+}
+.gu-btn:active{transform:translateY(2px);border-bottom-width:2px;}
+.gu-btn.gu-danger{background:var(--kit-danger);color:var(--kit-danger-ink);}
+.gu-btn:focus-visible,.gu-seg button:focus-visible,.gu-gate input:focus-visible{
+  outline:4px solid var(--kit-focus);outline-offset:3px;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .gu-overlay *{animation:none !important;transition:none !important;}
+}
