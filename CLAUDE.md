@@ -7,7 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A small static site of learning games for one kid (early elementary), served from GitHub
 Pages. No build step, no dependencies, no tests, no framework. `index.html` at the root is the
 menu; each game is a single `games/<name>/index.html` holding its own CSS, SVG/emoji art and JS
-in one `<script>` IIFE, on top of four shared files in `shared/`.
+in one `<script>` IIFE, on top of four shared files in `shared/`. The one game with extra files
+is silly-stories, which keeps its story DSL in `games/silly-stories/stories.js` and one story
+per file in `games/silly-stories/stories/`.
 
 **What is shared and what is copied is a deliberate line: share what must stay identical
 across games, keep in the game what is allowed to differ.**
@@ -17,7 +19,7 @@ Shared (`shared/`, load in this order):
 | file | what it owns |
 |---|---|
 | `storage.js` | `window.storage` — a promise-based `get`/`set`/`delete` over `localStorage`, prefixed `learning-games:`, no-ops safely when storage is blocked |
-| `kit.js` | `window.Kit` — `store` (JSON + in-memory fallback), `ri`/`pick`/`shuffle`, `debounce`, `audio`/`tone`, `say`, and the `sound`/`speech` enable flags |
+| `kit.js` | `window.Kit` — `store` (JSON + in-memory fallback), `ri`/`pick`/`shuffle`, `debounce`, `audio`/`tone`, `say` (optional 4th arg `{onend, onboundary, onerror}`, returns the utterance) and `hush`, and the `sound`/`speech` enable flags |
 | `grownups.js` | `window.Grownups` — the math gate and the whole grown-ups panel |
 | `kit.css` | the panel's chrome, every class prefixed `gu-`, themed by `--kit-*` vars |
 
@@ -65,8 +67,8 @@ Games talk to `Kit.store` (`get` parses JSON, `set` stringifies, `del`), which f
 memory so a game still plays through a session when storage is blocked; `Kit.store.ok` says
 whether it's really saving, and the panel tells the parent when it isn't.
 
-One key per game: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`. Bump the suffix or
-migrate defensively (`Object.assign(freshState(), saved)`, backfilling new fields) — kids'
+One key per game: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`, `sillystories:v1`.
+Bump the suffix or migrate defensively (`Object.assign(freshState(), saved)`, backfilling new fields) — kids'
 progress should survive a code change.
 
 ## The shared idea: the game reads the kid, not a level select
@@ -84,10 +86,31 @@ but the contract is the same — no menus of levels, no score to chase, and it c
 - **coin-shop** — a rolling window of the last N purchases. Three stages (running total → fewest
   coins → no total); promote on 7-of-8 clean, demote on ≤2-of-6, and a separate price-difficulty
   rung moves on 5-of-6 / 2-of-6. Stage changes clear the window so the next judgement is fresh.
+- **silly-stories** — per word *type* (`adjective`, `verbing`, `plural`…), not per word:
+  `{right, wrong, own, help, streak, miss, mode}`. Two of his own right-kind answers in a row
+  and that type's word list switches off (`mode:"bank"` → `"type"`); two wrong-kind answers and
+  it comes back. A separate rung picks which story levels he's offered, on how much of the last
+  two stories he typed instead of tapped (≥70% up, ≤34% down). A word the lists don't know is
+  neutral — never wrong — so made-up words cost him nothing.
 
 When adding progression: require a *window* of evidence (not one right answer), include a
 demotion path, and celebrate a promotion with an overlay that explains the new rule in the
 kid's words.
+
+## The story DSL (silly-stories)
+
+`games/silly-stories/stories.js` owns the word types, the parser and the fill-in; a story is a
+single `Stories.add(\`…\`)` in its own file under `stories/`, wired up with a script tag in the
+game's `index.html`. The header comment in `stories.js` is the authoring reference — keep it
+accurate, it is what makes adding a story a copy-paste job. In short: `key: value` header lines
+(title, emoji, about, level 1–3), one blank line, then the story, with `{adjective}`,
+`{adjective: your own question}`, `{name #hero}` to name a blank and `{#hero}` to use that same
+word again. An unknown type becomes the question and is guessed at, so anything you write works.
+`a`/`an` and the capital letter at the start of a sentence are fixed when the word goes in.
+
+The types are shared by the parser, the word lists the kid can tap, and the part-of-speech
+check behind the progression — adding a type means adding its `words` list too, since an empty
+list means no chips to tap and no way to tell a right-kind answer from a wrong-kind one.
 
 ## The grown-ups panel
 

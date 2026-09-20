@@ -85,17 +85,29 @@
   }
   try{ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }catch(e){}
 
-  function say(text, rate, pitch){
-    if (!Kit.speech.enabled) return;
+  /* opts is optional: {onend, onboundary, onerror}. Returns the utterance, or
+     null if nothing was spoken — a game reading a long text sentence by
+     sentence chains on onend and must stop when it gets null back. */
+  function say(text, rate, pitch, opts){
+    if (!Kit.speech.enabled) return null;
     try{
       speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(text);
       u.rate = rate || 0.9;
       u.pitch = pitch || 1.05;
       if (voice) u.voice = voice;
+      if (opts){
+        if (opts.onend) u.onend = opts.onend;
+        if (opts.onboundary) u.onboundary = opts.onboundary;
+        if (opts.onerror) u.onerror = opts.onerror;
+      }
       speechSynthesis.speak(u);
-    }catch(e){}
+      return u;
+    }catch(e){ return null; }
   }
+
+  /* Shut up mid-sentence — leaving a screen, or the grown-ups panel opening. */
+  function hush(){ try{ speechSynthesis.cancel(); }catch(e){} }
 
   var Kit = {
     store: store,
@@ -103,7 +115,7 @@
     /* Games mirror their own persisted settings onto these. */
     sound:  { enabled: true },
     speech: { enabled: true },
-    audio: audio, tone: tone, say: say
+    audio: audio, tone: tone, say: say, hush: hush
   };
 
   window.Kit = Kit;

@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Silly Stories</title>
+<meta name="description" content="Fill in the missing words, then hear the story read back.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128214;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<script src="stories.js"></script>
+
+<!-- The stories. Add a line here when you drop a new file in stories/;
+     stories.js at the top of that file explains how to write one. -->
+<script src="stories/dragon-socks.js"></script>
+<script src="stories/breakfast.js"></script>
+<script src="stories/pet-show.js"></script>
+<script src="stories/space-trip.js"></script>
+<script src="stories/school-flood.js"></script>
+<script src="stories/underwater-rescue.js"></script>
+
+<link rel="stylesheet" href="../../shared/kit.css">
+<style>
+  :root{
+    --paper:#FFF8EC;
+    --paper-deep:#F2E1C4;
+    --ink:#33244A;
+    --muted:rgba(51,36,74,.62);
+    --plum:#6B3FA0;
+    --berry:#C8356C;
+    --gold:#E8A33D;
+    --leaf:#3E8E63;
+    --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+    --story:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+
+    /* the shared grown-ups panel, in this book's colours */
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:var(--muted);
+    --kit-paper:var(--paper);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(51,36,74,.06);
+    --kit-accent:var(--plum);
+    --kit-accent-ink:var(--paper);
+    --kit-danger:var(--berry);
+    --kit-danger-ink:var(--paper);
+    --kit-scrim:rgba(51,36,74,.6);
+    --kit-focus:var(--gold);
+    --kit-radius:20px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  [hidden]{display:none !important;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--paper-deep);
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+
+  #app{
+    position:relative;height:100dvh;
+    display:flex;flex-direction:column;
+    background:
+      radial-gradient(130% 80% at 50% -10%, #FFFDF7 0%, var(--paper) 52%, var(--paper-deep) 100%);
+  }
+
+  /* ---------- shared bits ---------- */
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--paper);background:var(--plum);
+    border:none;border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;padding:.72em 1.5em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn:disabled{opacity:.35;cursor:default;transform:none;}
+  .btn.quiet{
+    background:transparent;color:var(--ink);
+    border:2px solid rgba(51,36,74,.32);border-bottom-width:2px;
+  }
+  .btn.danger{background:var(--berry);}
+  .btn:focus-visible,.chip:focus-visible,.fill:focus-visible,#word:focus-visible{
+    outline:4px solid var(--gold);outline-offset:3px;
+  }
+  .actions{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;}
+
+  /* ---------- top bar ---------- */
+  #bar{display:flex;align-items:center;gap:.5rem;padding:.55rem .8rem;flex:none;}
+  #bar a,#bar button.nav{
+    background:rgba(255,255,255,.72);border:2px solid rgba(51,36,74,.24);
+    color:var(--ink);border-radius:12px;padding:.42em .8em;
+    font-family:var(--font);font-size:.85rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #where{
+    margin-left:auto;font-size:.8rem;font-weight:700;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw;
+  }
+
+  /* ---------- screens ---------- */
+  .screen{display:none;flex:1;min-height:0;flex-direction:column;}
+  #app[data-screen="cover"] #cover,
+  #app[data-screen="fill"]  #fill,
+  #app[data-screen="read"]  #read{display:flex;}
+
+  /* ---------- cover ---------- */
+  #cover{align-items:center;justify-content:center;gap:1rem;padding:.4rem 1rem 1.4rem;text-align:center;}
+  #bunting{width:min(520px,94vw);flex:none;opacity:.9;}
+  #coverEmoji{font-size:clamp(3.4rem,17vw,6rem);line-height:1;}
+  #coverTitle{
+    font-family:var(--story);font-size:clamp(1.6rem,7vw,2.6rem);
+    margin:0;line-height:1.1;max-width:18ch;
+  }
+  #coverAbout{margin:0;max-width:30ch;font-size:clamp(.95rem,3.6vw,1.1rem);line-height:1.45;color:var(--muted);}
+  #coverCount{
+    margin:0;font-size:.85rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--plum);background:rgba(107,63,160,.1);
+    border-radius:999px;padding:.4em 1em;
+  }
+
+  /* ---------- filling in ---------- */
+  #fill{align-items:center;justify-content:center;gap:.9rem;padding:.2rem 1rem 1.2rem;overflow:auto;}
+  #theme{
+    font-family:var(--story);font-size:clamp(.95rem,3.8vw,1.15rem);
+    color:var(--muted);text-align:center;max-width:26ch;line-height:1.3;flex:none;
+  }
+  #cardWrap{
+    background:var(--paper);
+    border:4px solid var(--ink);border-radius:22px;
+    box-shadow:0 6px 0 rgba(51,36,74,.2);
+    padding:1rem 1.1rem 1.1rem;
+    width:min(94vw,460px);
+    display:flex;flex-direction:column;align-items:center;gap:.5rem;
+  }
+  #askNum{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  #dots{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;}
+  #dots i{width:8px;height:8px;border-radius:50%;background:rgba(51,36,74,.18);}
+  #dots i.done{background:var(--leaf);}
+  #dots i.now{background:var(--gold);transform:scale(1.4);}
+  #ask{
+    font-size:clamp(1.3rem,6vw,1.85rem);font-weight:800;
+    text-align:center;line-height:1.15;
+  }
+  #hint{font-size:clamp(.85rem,3.4vw,1rem);color:var(--muted);text-align:center;min-height:1.3em;}
+  #wordForm{display:flex;gap:.5rem;width:100%;margin-top:.2rem;}
+  #word{
+    flex:1;min-width:0;
+    font-family:var(--font);font-size:1.25rem;font-weight:700;
+    padding:.5em .7em;
+    border:3px solid var(--ink);border-radius:14px;
+    background:#fff;color:var(--ink);
+  }
+  #word::placeholder{color:rgba(51,36,74,.32);font-weight:600;}
+  #nextBtn{flex:none;}
+  #bank{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:.2rem;}
+  .chip.word{
+    font-family:var(--font);font-size:.95rem;font-weight:700;
+    background:#fff;color:var(--ink);
+    border:2px solid rgba(51,36,74,.28);border-bottom-width:3px;
+    border-radius:999px;padding:.35em .8em;cursor:pointer;
+  }
+  .chip.word:active{transform:translateY(1px);}
+  .chip.word.dice{background:rgba(232,163,61,.18);border-color:rgba(232,163,61,.7);}
+  .chip.word.taken{background:var(--leaf);color:var(--paper);border-color:var(--leaf);}
+  #showBank{
+    background:none;border:none;cursor:pointer;
+    font-family:var(--font);font-size:.85rem;font-weight:700;
+    color:var(--plum);text-decoration:underline;padding:.3em;
+  }
+  #fillFoot{display:flex;gap:.6rem;align-items:center;flex:none;}
+
+  /* ---------- the finished story ---------- */
+  #read{padding:0 1rem 1rem;align-items:center;}
+  #readHead{flex:none;text-align:center;padding:.2rem 0 .5rem;}
+  #readEmoji{font-size:clamp(1.8rem,7vw,2.4rem);line-height:1;}
+  #readTitle{font-family:var(--story);font-size:clamp(1.25rem,5.4vw,1.8rem);margin:.1rem 0 0;line-height:1.15;}
+  #story{
+    flex:1;min-height:0;overflow:auto;
+    width:min(94vw,640px);
+    font-family:var(--story);
+    font-size:clamp(1.05rem,4.4vw,1.35rem);line-height:1.75;
+    padding:.2rem .4rem 1rem;
+  }
+  #story p{margin:0 0 1em;}
+  .sent{border-radius:8px;}
+  .sent.now{background:#FBE3B0;box-shadow:0 0 0 4px #FBE3B0;}
+  .fill{
+    font-family:inherit;font-size:inherit;line-height:inherit;
+    background:none;border:none;padding:0 1px;margin:0;cursor:pointer;
+    color:var(--berry);font-weight:700;
+    border-bottom:2px dotted rgba(200,53,108,.6);
+  }
+  .fill.changed{animation:pop .5s ease;}
+  @keyframes pop{0%{background:#FBE3B0;}100%{background:transparent;}}
+  #tapHint{flex:none;margin:0 0 .5rem;font-size:.8rem;color:var(--muted);text-align:center;}
+  #readActions{flex:none;padding-bottom:env(safe-area-inset-bottom,0px);}
+
+  /* ---------- celebration overlay ---------- */
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(51,36,74,.6);padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--paper);border:4px solid var(--ink);border-radius:20px;
+    max-width:560px;width:100%;padding:1.2rem 1.3rem 1.3rem;margin:auto;text-align:center;
+  }
+  .sheet .big{font-size:3.4rem;line-height:1.1;}
+  .sheet h2{margin:.2rem 0 .5rem;font-size:1.45rem;}
+  .sheet p{margin:.35rem 0;font-size:.95rem;line-height:1.55;}
+
+  @media (max-height:600px){
+    #bunting,#coverEmoji,#theme,#readEmoji{display:none;}
+    #hint{min-height:0;}
+    #ask{font-size:clamp(1.1rem,5vw,1.45rem);}
+    #cardWrap{padding:.75rem .9rem .85rem;gap:.35rem;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app" data-screen="cover">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="nav" id="grownups">Grown-ups</button>
+    <span id="where"></span>
+  </div>
+
+  <!-- ---------- the cover ---------- -->
+  <section class="screen" id="cover">
+    <svg id="bunting" viewBox="0 0 520 44" aria-hidden="true">
+      <path d="M0 8 Q130 30 260 14 Q390 -2 520 16" fill="none" stroke="#33244A" stroke-width="2.5" opacity=".5"/>
+      <g stroke="#33244A" stroke-width="2" stroke-linejoin="round">
+        <path d="M34 12 L64 16 L47 42 Z" fill="#C8356C"/>
+        <path d="M104 20 L134 21 L119 46 Z" fill="#E8A33D"/>
+        <path d="M174 24 L204 22 L191 48 Z" fill="#3E8E63"/>
+        <path d="M244 22 L274 18 L262 44 Z" fill="#6B3FA0"/>
+        <path d="M314 16 L344 12 L333 38 Z" fill="#E8A33D"/>
+        <path d="M384 10 L414 8 L402 34 Z" fill="#C8356C"/>
+        <path d="M454 10 L484 14 L469 40 Z" fill="#3E8E63"/>
+      </g>
+    </svg>
+    <div id="coverEmoji">&#128214;</div>
+    <h1 id="coverTitle">Silly Stories</h1>
+    <p id="coverAbout"></p>
+    <p id="coverCount"></p>
+    <div class="actions">
+      <button class="btn" id="startBtn">Let&rsquo;s fill it in</button>
+      <button class="btn quiet" id="otherBtn">A different story</button>
+    </div>
+  </section>
+
+  <!-- ---------- one word at a time ---------- -->
+  <section class="screen" id="fill">
+    <div id="theme"></div>
+    <div id="cardWrap">
+      <div id="askNum"></div>
+      <div id="dots"></div>
+      <div id="ask"></div>
+      <div id="hint"></div>
+      <form id="wordForm" autocomplete="off">
+        <input id="word" type="text" inputmode="text" autocomplete="off" autocorrect="off"
+               autocapitalize="none" spellcheck="false" enterkeyhint="next"
+               maxlength="24" placeholder="type a word" aria-label="Your word">
+        <button class="btn" id="nextBtn" type="submit">Next</button>
+      </form>
+      <div id="bank"></div>
+      <button id="showBank" type="button">Show me some words</button>
+    </div>
+    <div id="fillFoot">
+      <button class="btn quiet" id="backBtn" type="button">&#8592; Back</button>
+      <button class="btn quiet" id="sayAsk" type="button" aria-label="Say the question again">&#128266;</button>
+    </div>
+  </section>
+
+  <!-- ---------- the finished story ---------- -->
+  <section class="screen" id="read">
+    <div id="readHead">
+      <div id="readEmoji"></div>
+      <h1 id="readTitle"></h1>
+    </div>
+    <div id="story"></div>
+    <p id="tapHint">Tap any of <b>your</b> words to change it.</p>
+    <div class="actions" id="readActions">
+      <button class="btn" id="againBtn" type="button">&#128266; Read it to me</button>
+      <button class="btn quiet" id="newBtn" type="button">&#10024; A new story</button>
+    </div>
+  </section>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const { pick, shuffle, store, say, tone } = Kit;
+  const overlay = $("#overlay");
+
+  const KEY = "sillystories:v1";
+  const MAX_LEN = 24;
+  const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  let S = null;                 // saved state
+  let story = null;             // the story on screen
+  let sentences = [];           // the .sent spans, in reading order
+  let readToken = 0;            // bumps on every stop, so a stale onend can't carry on
+  let editing = false;          // came to the fill screen from a tapped word
+  let forceBank = false;        // he asked for the word list on this blank
+  let busy = false;
+  let pending = [];             // promotions earned this story, shown on the way out
+  let sessionStart = Date.now();
+
+  const save = Kit.debounce(() => store.set(KEY, S), 350);
+
+  // The persisted toggles are the source of truth; Kit just mirrors them.
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = S.voice;
+  }
+
+  function freshState(){
+    return {
+      types:{},              // per word type: {right,wrong,own,help,used,streak,miss,mode}
+      rung:1,                // hardest story level he's offered
+      rungMode:"auto",       // auto | 1 | 2 | 3
+      bankMode:"auto",       // auto | always | ask
+      sound:true, voice:true, askVoice:true,
+      storiesDone:0, typed:0, helped:0, right:0, wrong:0, own:0,
+      hist:[],               // one {typed:share} per finished story
+      seconds:0, sessions:0,
+      cur:null,              // the story in progress: {id, answers, idx, chips, done}
+      last:null              // so the next story isn't the one he just did
+    };
+  }
+
+  function tstat(key){
+    return S.types[key] || (S.types[key] =
+      { right:0, wrong:0, own:0, help:0, used:0, streak:0, miss:0, mode:"bank" });
+  }
+
+  /* ---------------- sound ---------------- */
+  const blip    = () => { tone(680,0.07,0,"triangle",0.11); tone(1020,0.06,0.05,"sine",0.08); };
+  const chipTap = () => tone(520,0.06,0,"triangle",0.09);
+  const chime   = () => [523,659,784,1046].forEach((f,i) => tone(f,0.26,i*0.1,"sine",0.13));
+  const fanfare = () => [523,659,784,1046,1319].forEach((f,i) => tone(f,0.3,i*0.12,"triangle",0.14));
+
+  /* ---------------- picking a story ---------------- */
+  function pickStory(){
+    const all = Stories.all();
+    const pool = all.filter(s => s.level <= S.rung);
+    const list = pool.length ? pool : all;
+    const fresh = list.filter(s => s.id !== S.last);
+    return pick(fresh.length ? fresh : list);
+  }
+
+  function screen(name){ $("#app").dataset.screen = name; }
+
+  function showCover(st){
+    stopReading();
+    story = st;
+    $("#coverEmoji").textContent = st.emoji;
+    $("#coverTitle").textContent = st.title;
+    $("#coverAbout").textContent = st.about;
+    $("#coverCount").textContent = st.blanks.length + " words to think up";
+    $("#where").textContent = "";
+    screen("cover");
+    if (S.askVoice) say(st.title + ". " + st.about, 0.95);
+  }
+
+  /* ---------------- one blank at a time ---------------- */
+  function startStory(){
+    S.cur = { id: story.id, answers:{}, idx:0, chips:0, done:false };
+    pending = [];
+    editing = false;
+    showBlank();
+    save();
+  }
+
+  function bankShown(key){
+    if (forceBank || S.bankMode === "always") return true;
+    if (S.bankMode === "ask") return false;
+    return tstat(key).mode === "bank";
+  }
+
+  function renderDots(){
+    const dots = $("#dots");
+    dots.innerHTML = "";
+    story.blanks.forEach((b,i) => {
+      const d = document.createElement("i");
+      if (i < S.cur.idx || S.cur.answers[i] !== undefined) d.className = "done";
+      if (i === S.cur.idx) d.className = "now";
+      dots.appendChild(d);
+    });
+  }
+
+  function renderBank(blank){
+    const type = Stories.type(blank.type);
+    const bank = $("#bank");
+    bank.innerHTML = "";
+    const show = bankShown(blank.type);
+    bank.hidden = !show;
+    $("#showBank").hidden = show;
+    if (!show) return;
+
+    const choices = shuffle(type.words).slice(0,6);
+    choices.forEach(w => bank.appendChild(chip(w, w, false)));
+    bank.appendChild(chip("\u{1F3B2} surprise me", null, true));
+
+    function chip(label, word, dice){
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip word" + (dice ? " dice" : "");
+      b.textContent = label;
+      b.addEventListener("click", () => {
+        if (busy) return;
+        Kit.audio(); chipTap();
+        const w = word || pick(type.words);
+        $("#word").value = w;
+        b.classList.add("taken");
+        setTimeout(() => submit(w, true), 300);
+      });
+      return b;
+    }
+  }
+
+  function showBlank(announce){
+    const b = story.blanks[S.cur.idx];
+    forceBank = false;
+    $("#theme").textContent = story.emoji + "  " + story.title;
+    $("#where").textContent = story.title;
+    $("#askNum").textContent = editing
+      ? "Change this word"
+      : "Word " + (S.cur.idx + 1) + " of " + story.blanks.length;
+    renderDots();
+    $("#ask").textContent = b.label;
+    $("#hint").textContent = b.hint || "";
+    $("#nextBtn").textContent = editing ? "Done"
+      : (S.cur.idx === story.blanks.length - 1 ? "Finish!" : "Next");
+    $("#backBtn").textContent = editing ? "← Never mind"
+      : (S.cur.idx === 0 ? "← The cover" : "← Back");
+
+    const input = $("#word");
+    input.value = S.cur.answers[b.i] === undefined ? "" : S.cur.answers[b.i];
+    input.setAttribute("autocapitalize", b.type === "name" ? "words" : "none");
+    renderBank(b);
+
+    screen("fill");
+    setTimeout(() => { input.focus(); input.select(); }, 30);
+    if (announce !== false) askOutLoud();
+  }
+
+  function askOutLoud(){
+    if (!S.askVoice) return;
+    const b = story.blanks[S.cur.idx];
+    say(b.label + ". " + (b.hint || ""), 0.95);
+  }
+
+  /* ---------------- what an answer tells us ----------------
+     He is never told he got a word wrong — every word he types goes into the
+     story exactly as he typed it. This only decides whether the word list
+     stays on, and what the grown-ups panel has to say. */
+  function record(blank, word, viaChip){
+    const t = tstat(blank.type);
+    t.used++;
+    if (viaChip){
+      t.help++; S.helped++; t.streak = 0;
+      if (S.cur) S.cur.chips++;
+      return;
+    }
+    S.typed++;
+    const verdict = Stories.classify(blank.type, word);
+    t[verdict]++; S[verdict]++;
+
+    const free = Stories.type(blank.type).free;
+    if (verdict === "right" || (free && verdict === "own")){ t.streak++; t.miss = 0; }
+    else if (verdict === "wrong"){ t.streak = 0; t.miss++; }
+    // an unknown word is a fine answer and no evidence either way
+
+    if (t.mode === "bank" && t.streak >= 2){
+      t.mode = "type";
+      pending.push({ kind:"type", type:blank.type });
+    } else if (t.mode === "type" && t.miss >= 2){
+      t.mode = "bank"; t.miss = 0;
+    }
+  }
+
+  function submit(text, viaChip){
+    if (busy || !S.cur) return;
+    const w = String(text || "").replace(/\s+/g," ").trim().slice(0, MAX_LEN);
+    if (!w){ $("#word").focus(); return; }
+    const blank = story.blanks[S.cur.idx];
+
+    busy = true;
+    record(blank, w, viaChip);
+    S.cur.answers[blank.i] = w;
+    if (!viaChip) blip();
+    busy = false;
+
+    if (editing){ editing = false; save(); return backToStory(blank.i); }
+    if (S.cur.idx < story.blanks.length - 1){ S.cur.idx++; showBlank(); save(); }
+    else finish();
+  }
+
+  function goBack(){
+    if (editing){ editing = false; return backToStory(-1); }
+    if (S.cur.idx === 0) return showCover(story);
+    S.cur.idx--;
+    showBlank();
+    save();
+  }
+
+  /* ---------------- the finished story ---------------- */
+  function splitSentences(text){
+    const out = [], re = /[^.!?]*[.!?]+[)"'”]*\s*/g;
+    let m, last = 0;
+    while ((m = re.exec(text))){ out.push({ text:m[0], ends:true }); last = re.lastIndex; }
+    if (last < text.length) out.push({ text:text.slice(last), ends:false });
+    return out;
+  }
+
+  function renderStory(){
+    const host = $("#story");
+    host.innerHTML = "";
+    sentences = [];
+    $("#readEmoji").textContent = story.emoji;
+    $("#readTitle").textContent = story.title;
+    $("#where").textContent = "";
+
+    Stories.fill(story, S.cur.answers).forEach(para => {
+      const p = document.createElement("p");
+      let sent = newSent(p);
+      para.forEach(piece => {
+        if (piece.text !== undefined){
+          splitSentences(piece.text).forEach(chunk => {
+            sent.appendChild(document.createTextNode(chunk.text));
+            if (chunk.ends) sent = newSent(p);
+          });
+        } else {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "fill";
+          b.dataset.b = piece.blank;
+          b.textContent = piece.word;
+          b.title = "Change this word";
+          b.addEventListener("click", () => editBlank(piece.blank));
+          sent.appendChild(b);
+        }
+      });
+      host.appendChild(p);
+    });
+
+    sentences = sentences.filter(s => {
+      if (s.textContent.trim()) return true;
+      s.remove(); return false;
+    });
+    $("#againBtn").hidden = !Kit.speech.enabled;
+    screen("read");
+  }
+
+  function newSent(p){
+    const s = document.createElement("span");
+    s.className = "sent";
+    p.appendChild(s);
+    sentences.push(s);
+    return s;
+  }
+
+  function finish(){
+    $("#word").blur();
+    S.cur.done = true;
+    S.storiesDone++;
+    const total = story.blanks.length || 1;
+    S.hist.push({ typed: (total - (S.cur.chips || 0)) / total });
+    if (S.hist.length > 6) S.hist = S.hist.slice(-6);
+    considerRung();
+    collapseCheers();
+    S.last = story.id;
+    renderStory();
+    chime();
+    setTimeout(() => readFrom(0, false), 600);
+    save();
+  }
+
+  // Several word lists can switch off in one story. That is one piece of good
+  // news, not four overlays in a row.
+  function collapseCheers(){
+    const types = pending.filter(p => p.kind === "type").map(p => p.type);
+    pending = pending.filter(p => p.kind !== "type");
+    if (types.length) pending.unshift({ kind:"type", types: types });
+  }
+
+  function editBlank(i){
+    stopReading();
+    editing = true;
+    S.cur.idx = i;
+    showBlank();
+  }
+
+  function backToStory(changed){
+    renderStory();
+    save();
+    if (changed < 0) return;
+    const el = $("#story").querySelector('[data-b="' + changed + '"]');
+    if (el) el.classList.add("changed");
+    const sent = el && el.closest(".sent");
+    const n = sent ? sentences.indexOf(sent) : -1;
+    readFrom(n < 0 ? 0 : n, true);
+  }
+
+  /* ---------------- reading it out loud ----------------
+     Sentence by sentence: it highlights as it goes, and long stories don't
+     get cut off the way one giant utterance does. */
+  function stopReading(){
+    readToken++;
+    Kit.hush();
+    sentences.forEach(s => s.classList.remove("now"));
+    $("#againBtn").innerHTML = "\u{1F50A} Read it to me";
+  }
+
+  function readFrom(start, onlyOne){
+    stopReading();
+    if (!Kit.speech.enabled || !sentences.length) return;
+    const mine = ++readToken;
+    $("#againBtn").innerHTML = "⏹ Stop";
+
+    (function step(n){
+      if (mine !== readToken) return;
+      if (n >= sentences.length || (onlyOne && n > start)){ stopReading(); return; }
+      const el = sentences[n];
+      sentences.forEach(s => s.classList.remove("now"));
+      el.classList.add("now");
+      try { el.scrollIntoView({ block:"nearest", behavior: REDUCED ? "auto" : "smooth" }); } catch(e){}
+
+      const text = el.textContent.trim();
+      if (!text) return step(n + 1);
+      const u = say(text, 0.92, 1.03, {
+        onend:   () => { if (mine === readToken) setTimeout(() => step(n + 1), 140); },
+        onerror: () => { if (mine === readToken) stopReading(); }
+      });
+      if (!u) stopReading();
+    })(start);
+  }
+
+  function toggleRead(){
+    Kit.audio();
+    if ($("#againBtn").textContent.indexOf("Stop") > -1) stopReading();
+    else readFrom(0, false);
+  }
+
+  /* ---------------- moving him along ---------------- */
+  function considerRung(){
+    if (S.rungMode !== "auto") return;
+    const last2 = S.hist.slice(-2);
+    if (last2.length < 2) return;
+    if (S.rung < 3 && last2.every(h => h.typed >= 0.7)){
+      S.rung++; S.hist = [];
+      pending.push({ kind:"rung", to:S.rung });
+    } else if (S.rung > 1 && last2.every(h => h.typed <= 0.34)){
+      S.rung--; S.hist = [];
+      pending.push({ kind:"rung-down", to:S.rung });
+    }
+  }
+
+  const RUNG_UP = {
+    2: { head:"Longer stories!", body:"You have earned the bigger stories. They have more words to think up, " +
+         "and some new kinds — words for <b>more than one thing</b>, and words that end in <b>-ing</b>." },
+    3: { head:"The tricky ones!", body:"Now you get the longest stories of all, with <b>-ly words</b> in them. " +
+         "Those are the hardest kind, so take your time — and the word list is always one tap away." }
+  };
+
+  function celebrate(p){
+    let c;
+    if (p.kind === "type"){
+      const names = p.types.slice(0,3).map(k => Stories.type(k).short);
+      const more = p.types.length - names.length;
+      let what = names.length === 1 ? names[0]
+        : names.slice(0,-1).join(", ") + " and " + names[names.length - 1];
+      if (more > 0) what += " (and " + more + " more)";
+      c = { emoji:"✨", head:"You thought of those yourself!",
+            body:"Two of your own <b>" + what + "</b> in a row, so " +
+                 (p.types.length === 1 ? "that word list is" : "those word lists are") + " off for now. " +
+                 "Tap <i>Show me some words</i> any time you want one back.",
+            voice:"Nice! You do not need the word list for those any more." };
+    } else if (p.kind === "rung"){
+      const r = RUNG_UP[p.to] || RUNG_UP[2];
+      c = { emoji:"\u{1F4DA}", head:r.head, body:r.body, voice:"You unlocked longer stories!" };
+    } else {
+      c = { emoji:"\u{1F4D6}", head:"Shorter stories for a bit",
+            body:"Those last two were a lot of words. Here are some shorter stories again — " +
+                 "the long ones come back once these feel easy.",
+            voice:"Let us do some shorter stories for a bit." };
+    }
+    fanfare();
+    overlay.innerHTML =
+      '<div class="sheet">' +
+        '<div class="big">' + c.emoji + "</div>" +
+        "<h2>" + c.head + "</h2>" +
+        "<p>" + c.body + "</p>" +
+        '<div class="actions" style="margin-top:1.2rem">' +
+          '<button class="btn" id="goOn">Next story</button>' +
+        "</div></div>";
+    overlay.classList.add("open");
+    say(c.voice, 0.95);
+    $("#goOn").focus();
+    $("#goOn").onclick = () => {
+      overlay.classList.remove("open");
+      overlay.innerHTML = "";
+      nextStory();
+    };
+  }
+
+  function nextStory(){
+    stopReading();
+    if (pending.length) return celebrate(pending.shift());
+    S.cur = null;
+    save();
+    showCover(pickStory());
+  }
+
+  /* ---------------- grown-ups ---------------- */
+  // Shape and gate live in shared/grownups.js; this only supplies the content.
+  const STICKY = {
+    verbing: "<b>-ing endings.</b> He gives the plain action word (“jump”) when the story asks for “jumping”. " +
+             "That is an ending, not a vocabulary gap — saying the whole sentence out loud with his word in it " +
+             "fixes it faster than any explaining.",
+    plural:  "<b>One instead of lots.</b> He gives “sock” when the story asks for more than one thing. " +
+             "Worth listening for whether it is the <i>s</i> he drops or the idea of more-than-one that slips.",
+    adverb:  "<b>-ly words.</b> “Slow” for “slowly”. Adverbs are the last part of speech to land for most kids, " +
+             "and six is early for them — this one is fine to leave alone for a year.",
+    adjective:"<b>Describing words.</b> He answers with a thing instead (“dog” for a describing word). " +
+             "Asking him “what <i>kind</i> of dog?” pulls an adjective out almost every time.",
+    verb:    "<b>Action words.</b> He answers with a thing instead of something you do. " +
+             "“What is he <i>doing</i>?” usually unsticks it.",
+    noun:    "<b>Things.</b> He is answering with actions or describing words here, which normally means he is " +
+             "thinking about the story rather than the question — no bad thing."
+  };
+
+  function panelConfig(){
+    stopReading();
+    const judged = S.right + S.wrong;
+    const rightPct = judged ? Math.round(S.right / judged * 100) : 0;
+    const mins = Math.round((S.seconds + (Date.now() - sessionStart) / 1000) / 60);
+
+    const sections = [];
+
+    sections.push({
+      title: "What he is actually being asked",
+      html:
+        "<p>Each question asks for a <b>kind</b> of word — a describing word, an action word, more than one " +
+        "thing — with no sentence in front of him to lean on. Producing one to order is the whole skill, and " +
+        "it is a real step up from recognising one in a book.</p>" +
+        "<p>His word is checked against ordinary words for that kind, and lands in one of three places: the right " +
+        "kind, a real word of a <i>different</i> kind (“jump” for a describing word), or one we simply don’t " +
+        "know — a made-up word, a name, something out of his own head. That last one is never held against " +
+        "him. <b>He is never told he got a word wrong</b>, and every word he types goes into the story exactly as " +
+        "he typed it. The joke is the point; the measuring is for you.</p>"
+    });
+
+    // Where he is sticking, named out of his own answers.
+    const stuck = Object.keys(S.types)
+      .filter(k => STICKY[k] && S.types[k].wrong >= 2 &&
+                   S.types[k].wrong / Math.max(1, S.types[k].right + S.types[k].wrong) >= 0.34)
+      .sort((a,b) => S.types[b].wrong - S.types[a].wrong)
+      .slice(0,2);
+    let meaning = "";
+    if (judged < 8){
+      meaning = '<p class="gu-muted">A few more stories and this will name the exact spots he is sticking on.</p>';
+    } else if (stuck.length){
+      meaning = stuck.map(k => "<p>" + STICKY[k] + "</p>").join("");
+    } else {
+      meaning = "<p>Nothing is sticking out right now — the kinds of word he has met are all landing.</p>";
+    }
+    if (S.own >= 5){
+      meaning += "<p>He has also put <b>" + S.own + "</b> words in that aren’t on any list — his own, " +
+                 "made up, or borrowed from somewhere. That is the good kind of answer, and it is why the " +
+                 "percentage above will never be 100.</p>";
+    }
+    sections.push({ title: "What the numbers mean for a kid this age", html: meaning });
+
+    // Per type: where he is on the word-list ladder.
+    const met = Object.keys(S.types).filter(k => S.types[k].used)
+      .sort((a,b) => S.types[b].used - S.types[a].used);
+    let rows;
+    if (!met.length){
+      rows = '<p class="gu-muted">Nothing yet — this fills in as he plays.</p>';
+    } else {
+      rows = met.map(k => {
+        const t = S.types[k], type = Stories.type(k);
+        const bits = [];
+        if (t.right) bits.push(t.right + " right kind");
+        if (t.wrong) bits.push(t.wrong + " other kind");
+        if (t.own)   bits.push(t.own + " his own");
+        if (t.help)  bits.push(t.help + " from the list");
+        const on = bankShown(k);
+        return '<div class="gu-row"><span>' + type.short.charAt(0).toUpperCase() + type.short.slice(1) +
+               '<small class="gu-hint">' + (bits.join(" · ") || "just started") + "</small></span>" +
+               "<b>" + (on ? "word list on" : "typing") + "</b></div>";
+      }).join("");
+      rows += '<p class="gu-muted">Two of his own right-kind answers in a row turns a word list off; ' +
+              "two of the wrong kind turns it back on. Tapping a word off the list never counts against him — " +
+              "it just isn’t evidence, so it doesn’t move anything.</p>";
+    }
+    sections.push({ title: "Kinds of word he has met", html: rows });
+
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.storiesDone, label:"Stories finished" },
+        { value:S.typed, label:"Words he typed" },
+        { value:rightPct + "%", label:"Right kind of word" },
+        { value:mins, label:"Minutes played" }
+      ],
+      sections: sections,
+      settings: [
+        { label:"Word lists", hint:"Auto turns each one off once he can do without it", value:S.bankMode,
+          options:[{value:"auto",label:"Auto"},{value:"always",label:"Always"},{value:"ask",label:"Only if he asks"}],
+          onPick(v){ S.bankMode = v; save(); } },
+        { label:"Story length", hint:"Auto steps up once he types most of the words himself", value:S.rungMode,
+          options:[{value:"auto",label:"Auto"},{value:"1",label:"Short"},{value:"2",label:"Longer"},{value:"3",label:"Longest"}],
+          onPick(v){ S.rungMode = v; if (v !== "auto") S.rung = +v; S.hist = []; save(); } },
+        { label:"Read the story out loud", value:S.voice ? "1" : "0", options:onOff,
+          onPick(v){ S.voice = v === "1"; applySettings(); save(); } },
+        { label:"Read the questions too", hint:"So he can play before he can read them", value:S.askVoice ? "1" : "0",
+          options:onOff, onPick(v){ S.askVoice = v === "1"; save(); } },
+        { label:"Sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); save(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, so these numbers cover today only.</p>',
+      closeLabel: "Back to the story",
+      onClose(){
+        $("#againBtn").hidden = !Kit.speech.enabled;
+        if ($("#app").dataset.screen === "fill") setTimeout(() => $("#word").focus(), 30);
+      },
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          pending = [];
+          showCover(pickStory());
+        }
+      }
+    };
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#startBtn").addEventListener("click", () => { Kit.audio(); startStory(); });
+  $("#otherBtn").addEventListener("click", () => { Kit.audio(); S.last = story ? story.id : null; showCover(pickStory()); });
+  $("#wordForm").addEventListener("submit", e => { e.preventDefault(); Kit.audio(); submit($("#word").value, false); });
+  $("#backBtn").addEventListener("click", goBack);
+  $("#sayAsk").addEventListener("click", () => { Kit.audio(); askOutLoud(); });
+  $("#showBank").addEventListener("click", () => {
+    forceBank = true;
+    renderBank(story.blanks[S.cur.idx]);
+  });
+  $("#againBtn").addEventListener("click", toggleRead);
+  $("#newBtn").addEventListener("click", () => { Kit.audio(); nextStory(); });
+  $("#grownups").addEventListener("click", () => { stopReading(); Grownups.open(panelConfig); });
+
+  document.addEventListener("keydown", e => {
+    if (!S || Grownups.isOpen() || overlay.classList.contains("open")) return;
+    if (e.key === "Escape" && $("#app").dataset.screen === "fill"){ e.preventDefault(); goBack(); }
+    if (e.key === "Escape" && $("#app").dataset.screen === "read") stopReading();
+  });
+
+  setInterval(() => { if (S){ S.seconds += 15; save(); } }, 15000);
+  window.addEventListener("beforeunload", () => { if (S) store.set(KEY, S); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stopReading(); });
+
+  /* ---------------- boot ---------------- */
+  (async function boot(){
+    const saved = await store.get(KEY);
+    S = saved && saved.types ? Object.assign(freshState(), saved) : freshState();
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+    applySettings();
+
+    if (!Stories.all().length){
+      $("#coverTitle").textContent = "No stories loaded";
+      $("#coverAbout").textContent = "The story files in stories/ didn’t load. Check the script tags in index.html.";
+      $("#startBtn").disabled = true; $("#otherBtn").disabled = true;
+      return;
+    }
+
+    let resumed = false;
+    if (S.cur && S.cur.id){
+      const st = Stories.get(S.cur.id);
+      if (st){
+        story = st;
+        resumed = true;
+        if (S.cur.done) renderStory();
+        else showBlank(false);
+      } else {
+        S.cur = null;
+      }
+    }
+    if (!resumed) showCover(pickStory());
+    save();
+  })();
+
+})();
+</script>
+</body>
+</html>
