@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Robot Factory</title>
+<meta name="description" content="Rows and columns of robots, one charging pad each — multiplication as an array.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129302;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
+<style>
+  :root{
+    --deep:#0B1B24;
+    --floor:#16323F;
+    --floor2:#0E2531;
+    --steel:#2B4A5C;
+    --rail:#3E6274;
+    --mist:#9FB7C7;
+    --paper:#F2F8FB;
+    --bolt:#FFC247;
+    --charge:#3ED598;
+    --alarm:#FF7A6B;
+    --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+
+    /* the shared grown-ups panel, in the factory's colours */
+    --kit-font:var(--font);
+    --kit-ink:#12303F;
+    --kit-muted:#52707F;
+    --kit-paper:var(--paper);
+    --kit-line:#12303F;
+    --kit-tile:rgba(18,48,63,.07);
+    --kit-accent:#1F6E8C;
+    --kit-accent-ink:var(--paper);
+    --kit-danger:#C7412F;
+    --kit-danger-ink:var(--paper);
+    --kit-scrim:rgba(11,27,36,.72);
+    --kit-focus:var(--bolt);
+    --kit-radius:18px;
+
+    --gap:4px;
+    --cell:34px;
+    --lblw:clamp(22px,5.5vw,40px);
+    --lblh:clamp(19px,4.6vw,30px);
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);
+    color:var(--paper);
+    background:var(--floor2);
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+
+  #app{
+    position:relative;height:100dvh;
+    display:flex;flex-direction:column;
+    background:
+      radial-gradient(130% 80% at 50% 0%, #1E4256 0%, var(--floor) 48%, var(--floor2) 100%);
+  }
+
+  /* ---------- shared bits ---------- */
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--deep);background:var(--bolt);
+    border:none;border-bottom:4px solid rgba(0,0,0,.35);
+    border-radius:14px;padding:.7em 1.4em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn:disabled{opacity:.38;cursor:default;transform:none;}
+  .btn.quiet,.btn.ghost{
+    background:rgba(255,255,255,.14);color:var(--paper);
+    border-bottom-color:rgba(0,0,0,.3);
+  }
+  .btn.danger{background:#C7412F;color:var(--paper);}
+  .btn:focus-visible{outline:4px solid var(--bolt);outline-offset:3px;}
+
+  /* ---------- top bar ---------- */
+  #bar{display:flex;align-items:center;gap:.45rem;padding:.5rem .7rem .2rem;flex:none;}
+  #bar a,#bar button.chip{
+    background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.2);
+    color:var(--paper);border-radius:12px;padding:.38em .7em;
+    font-family:var(--font);font-size:.8rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #stageChip{
+    background:var(--bolt);color:var(--deep);
+    border-radius:999px;padding:.32em .8em;
+    font-size:.76rem;font-weight:800;white-space:nowrap;
+  }
+  #stageChip i{font-style:normal;opacity:.65;}
+  #charged{
+    margin-left:auto;display:flex;align-items:center;gap:.3rem;
+    font-size:.78rem;font-weight:800;color:var(--mist);white-space:nowrap;
+  }
+  #charged b{color:var(--charge);font-size:.95rem;}
+
+  /* ---------- the equation ---------- */
+  #eq{
+    flex:none;display:flex;align-items:center;justify-content:center;
+    gap:clamp(6px,2vw,14px);padding:.35rem .6rem .15rem;
+    font-size:clamp(1.7rem,7.6vw,3rem);font-weight:800;line-height:1;
+  }
+  #eq .op{color:var(--mist);}
+  .slot{
+    font-family:var(--font);font-size:inherit;font-weight:800;line-height:1;
+    min-width:1.9em;padding:.1em .18em;text-align:center;display:inline-block;
+    border-radius:12px;border:3px solid transparent;color:var(--paper);
+  }
+  button.slot{background:rgba(11,27,36,.45);border-color:rgba(255,255,255,.3);
+    border-style:dashed;color:var(--bolt);cursor:pointer;}
+  button.slot.on{border-style:solid;border-color:var(--bolt);background:rgba(255,194,71,.16);}
+  button.slot.filled{border-style:solid;}
+  button.slot.good{background:var(--charge);color:var(--deep);border-color:var(--charge);animation:pop .32s ease;}
+  button.slot.bad{background:var(--alarm);color:var(--deep);border-color:var(--alarm);animation:shake .34s ease;}
+  button.slot.told{background:rgba(255,194,71,.9);color:var(--deep);border-color:var(--bolt);}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.13)}100%{transform:scale(1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}45%{transform:translateX(8px)}70%{transform:translateX(-5px)}}
+
+  /* ---------- the factory floor ---------- */
+  #bays{
+    flex:1;min-height:0;display:flex;align-items:stretch;
+    gap:clamp(4px,1.6vw,12px);padding:.2rem clamp(6px,2.4vw,18px);
+  }
+  .bay{flex:1;min-width:0;display:grid;
+    grid-template-columns:var(--lblw) 1fr;
+    grid-template-rows:var(--lblh) 1fr;
+    gap:2px;}
+  .lbl{
+    font-weight:800;font-size:clamp(.95rem,3.6vw,1.4rem);line-height:1;
+    display:flex;align-items:center;justify-content:center;color:var(--bolt);
+  }
+  .lbl.dim{color:var(--mist);}
+  .lbl-col{grid-column:2;grid-row:1;}
+  .lbl-row{grid-column:1;grid-row:2;}
+  .pen{
+    grid-column:2;grid-row:2;position:relative;min-height:0;min-width:0;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:14px;
+  }
+  #padPen{border:2px dashed rgba(255,255,255,.16);}
+  .cells{
+    display:grid;gap:var(--gap);
+    justify-content:center;align-content:center;
+  }
+  #eqSign{
+    flex:none;align-self:center;
+    font-size:clamp(1.4rem,6vw,2.4rem);font-weight:800;color:var(--mist);
+  }
+
+  /* ---------- robots and pads ---------- */
+  .bot,.pad{
+    width:var(--cell);height:var(--cell);
+    display:block;
+  }
+  .bot svg,.pad svg{width:100%;height:100%;display:block;}
+  .bot{
+    position:relative;z-index:3;
+    transition:transform 440ms cubic-bezier(.34,1.12,.5,1);
+  }
+  .bot.extra svg{filter:drop-shadow(0 0 6px var(--alarm));}
+  .bot.extra{animation:alarm 1s ease-in-out infinite;}
+  .pad.lit svg{filter:drop-shadow(0 0 7px var(--charge));}
+  .pad.extra svg{filter:drop-shadow(0 0 7px var(--alarm));}
+  .pad.extra{animation:alarm 1s ease-in-out infinite;}
+  @keyframes alarm{0%,100%{opacity:1}50%{opacity:.5}}
+
+  /* ---------- the bay door (hidden robots) ---------- */
+  #door{
+    position:absolute;inset:0;border-radius:14px;z-index:6;
+    background:
+      repeating-linear-gradient(180deg, #2B4A5C 0 7px, #22404F 7px 14px);
+    border:3px solid var(--rail);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;
+    transition:transform 420ms cubic-bezier(.4,0,.2,1);
+    transform-origin:top center;
+  }
+  #door.up{transform:scaleY(0);}
+  #door[hidden]{display:none;}
+  #door small{font-size:.72rem;font-weight:800;color:var(--mist);letter-spacing:.06em;}
+  #peek{
+    font-family:var(--font);font-size:.82rem;font-weight:800;
+    background:rgba(255,194,71,.16);color:var(--bolt);
+    border:2px solid var(--bolt);border-radius:10px;padding:.35em .8em;cursor:pointer;
+  }
+
+  /* ---------- feedback ---------- */
+  #feedback{
+    flex:none;min-height:2.5em;display:flex;align-items:center;justify-content:center;
+    padding:0 1rem;text-align:center;
+    font-size:clamp(.85rem,3.3vw,1.05rem);font-weight:700;line-height:1.3;
+    color:var(--mist);max-width:40ch;margin:0 auto;
+  }
+  #feedback.good{color:var(--charge);}
+  #feedback.miss{color:#FFD2CB;}
+
+  /* ---------- keypad ---------- */
+  #pad{
+    flex:none;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:clamp(5px,1.6vw,9px);
+    width:min(340px,100%);margin:0 auto;
+    padding:.3rem clamp(10px,4vw,16px) calc(.6rem + env(safe-area-inset-bottom,0px));
+  }
+  .key{
+    font-family:var(--font);font-size:clamp(1.15rem,5vw,1.5rem);font-weight:800;
+    padding:.5em 0;border-radius:13px;cursor:pointer;
+    background:rgba(255,255,255,.93);color:var(--deep);
+    border:none;border-bottom:4px solid rgba(11,27,36,.4);
+  }
+  .key:active{transform:translateY(3px);border-bottom-width:1px;}
+  .key:focus-visible{outline:3px solid var(--bolt);outline-offset:2px;}
+  .key.util{background:rgba(255,255,255,.18);color:var(--paper);font-size:clamp(1rem,4vw,1.2rem);}
+  .key.go{background:var(--bolt);color:var(--deep);}
+  .key:disabled{opacity:.4;cursor:default;transform:none;}
+
+  /* ---------- overlay ---------- */
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(11,27,36,.82);padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--paper);color:#12303F;
+    border:4px solid #12303F;border-radius:20px;
+    max-width:560px;width:100%;padding:1.2rem 1.3rem 1.3rem;
+    max-height:92dvh;overflow:auto;margin:auto;text-align:center;
+  }
+  .sheet h2{margin:.2rem 0 .5rem;font-size:1.5rem;}
+  .sheet p{margin:.35rem 0;font-size:.95rem;line-height:1.55;}
+  .sheet .big{font-size:3.2rem;line-height:1.1;}
+  .sheet .actions{display:flex;gap:.6rem;justify-content:center;margin-top:1.1rem;}
+
+  /* ---------- panel extras ---------- */
+  .gu-sheet .factlist{display:flex;flex-wrap:wrap;gap:6px;margin:.5rem 0 .2rem;}
+  .gu-sheet .fact{
+    font-weight:800;font-size:.85rem;padding:.35em .7em;border-radius:9px;border:2px solid;
+  }
+  .gu-sheet .fact.missed{background:#FDE8E4;border-color:#E5806E;color:#9B3423;}
+  .gu-sheet .fact.slow{background:#FFF3DA;border-color:#E3B457;color:#8A5E12;}
+  .gu-sheet .fact.solid{background:#E4F4EC;border-color:#6FC49E;color:#1E6A4A;}
+
+  @media (max-height:640px){
+    #eq{font-size:clamp(1.4rem,6.4vw,2.2rem);padding-top:.15rem;}
+    #feedback{min-height:1.9em;}
+    .key{padding:.4em 0;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="chip" id="grownups">Grown-ups</button>
+    <span id="stageChip">Stage 1 <i>count them</i></span>
+    <div id="charged">&#9889; <b id="chargedNum">0</b> charged</div>
+  </div>
+
+  <div id="eq" aria-live="polite"></div>
+
+  <div id="bays">
+    <div class="bay" id="botBay">
+      <div class="lbl lbl-col" id="colLbl"></div>
+      <div class="lbl lbl-row" id="rowLbl"></div>
+      <div class="pen" id="botPen">
+        <div class="cells" id="botCells"></div>
+        <div id="door" class="up" hidden>
+          <small>BAY CLOSED</small>
+          <button id="peek" type="button">Peek</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="eqSign">=</div>
+
+    <div class="bay" id="padBay">
+      <div class="lbl lbl-col dim" id="padLbl"></div>
+      <div class="lbl lbl-row"></div>
+      <div class="pen" id="padPen">
+        <div class="cells" id="padCells"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="feedback"></div>
+
+  <div id="pad"></div>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const { ri, pick, store, say, tone } = Kit;
+
+  const KEY = "robotfactory:v1";
+  const MAXCELLS = 210;          // past this we don't even draw it
+
+  /* Row tints. Same robot, different colour per row — it's what lets him see
+     the rows as rows and count 5, 10, 15 instead of one at a time. */
+  const TINTS = ["#7FC4F0","#6FD6C0","#F6A6C1","#FFC247","#B7A6E8","#9CD67A","#F09A76","#8FD3E8"];
+
+  /* How big the numbers get. Moves on its own, separately from the stage. */
+  const LEVELS = [
+    { note:"2 to 5 on each side",  lo:2, hi:5  },
+    { note:"up to 6 on each side", lo:2, hi:6  },
+    { note:"up to 9 on each side", lo:2, hi:9  },
+    { note:"all the way to 12",    lo:2, hi:12 }
+  ];
+
+  const STAGE_WHAT = { 1:"count them", 2:"in your head", 3:"missing side", 4:"you build it" };
+
+  let S = null;            // everything that persists
+  let R = null;            // the round in progress
+  let E = null;            // what he's typed, per blank: {a,b,p}
+  let focusKey = "p";
+  let locked = false;      // true while animating, overlaid or in the panel
+  let shownAt = 0;
+  let sessionStart = Date.now();
+
+  const persist = Kit.debounce(() => store.set(KEY, S), 350);
+
+  // The persisted toggles are the source of truth; Kit just mirrors them.
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = S.voice;
+  }
+
+  function freshState(){
+    return {
+      stage:1,              // 1 count them, 2 hidden, 3 missing factor, 4 both sides
+      level:0,              // which rung of number size
+      stageMode:"auto",
+      hist:[], levelHist:[],
+      rounds:0, cleanRounds:0, attempts:0,
+      charged:0,            // robots he's actually plugged in
+      peeks:0, hints:0,
+      facts:{},             // "4x5" -> {tries,wrong,avg}
+      sound:true, voice:true,
+      seconds:0, sessions:0,
+      round:null, entry:null   // so a reload lands him back on the same problem
+    };
+  }
+
+  /* ---------------- sound ---------------- */
+  const blip    = v => tone(420 + v * 26, 0.05, 0, "square", 0.07);
+  const clunk   = () => tone(180, 0.08, 0, "square", 0.08);
+  const zap     = i => { if (i < 14) tone(620 + i * 34, 0.07, 0, "sine", 0.07); };
+  const yay     = () => [523,659,784,1046].forEach((f,i) => tone(f, 0.26, i*0.11, "triangle", 0.15));
+  const nope    = () => { tone(200,0.16,0,"square",0.09); tone(150,0.2,0.13,"square",0.09); };
+  const fanfare = () => [392,523,659,784,1046].forEach((f,i) => tone(f, 0.3, i*0.12, "triangle", 0.15));
+
+  /* ---------------- art ---------------- */
+  function botSVG(c){
+    return '<svg viewBox="0 0 36 40" aria-hidden="true">' +
+      '<path d="M18 7V4" stroke="#9FB7C7" stroke-width="2" stroke-linecap="round"/>' +
+      '<circle cx="18" cy="2.8" r="2.6" fill="#FFC247"/>' +
+      '<rect x="1" y="14" width="5" height="11" rx="2.5" fill="' + c + '"/>' +
+      '<rect x="30" y="14" width="5" height="11" rx="2.5" fill="' + c + '"/>' +
+      '<rect x="5" y="7" width="26" height="21" rx="7" fill="' + c + '"/>' +
+      '<rect x="9" y="12" width="18" height="10" rx="5" fill="#0B1B24"/>' +
+      '<circle cx="14.5" cy="17" r="2.3" fill="#3ED598"/>' +
+      '<circle cx="21.5" cy="17" r="2.3" fill="#3ED598"/>' +
+      '<rect x="7" y="29" width="22" height="8" rx="4" fill="#2B4A5C"/>' +
+      '<circle cx="12.5" cy="33" r="2.3" fill="#9FB7C7"/>' +
+      '<circle cx="23.5" cy="33" r="2.3" fill="#9FB7C7"/>' +
+    '</svg>';
+  }
+  const PAD_SVG =
+    '<svg viewBox="0 0 36 36" aria-hidden="true">' +
+      '<ellipse cx="18" cy="25" rx="15" ry="7.5" fill="#12303F" stroke="#3E6274" stroke-width="2"/>' +
+      '<ellipse cx="18" cy="23.5" rx="8.5" ry="4" fill="#1B3F52"/>' +
+      '<path d="M21 8l-8 11h4.5L15 28l8.5-12H19z" fill="#FFC247"/>' +
+    '</svg>';
+
+  /* ---------------- laying things out ---------------- */
+  /* Pads for a missing-factor round are deliberately NOT in rows of the known
+     side — otherwise he'd just count the columns instead of thinking. The hint
+     is what lines them up. */
+  function neutralCols(n){
+    if (n <= 6) return n;
+    const opts = [5,6,7,4];
+    for (let i = 0; i < opts.length; i++) if (n % opts[i]) return opts[i];
+    return 5;
+  }
+
+  function drawCells(host, count, cols, kind){
+    host.style.gridTemplateColumns = "repeat(" + Math.max(1, cols) + ", var(--cell))";
+    let html = "";
+    for (let i = 0; i < count; i++){
+      html += kind === "bot"
+        ? '<div class="bot">' + botSVG(TINTS[Math.floor(i / Math.max(1, cols)) % TINTS.length]) + "</div>"
+        : '<div class="pad">' + PAD_SVG + "</div>";
+    }
+    host.innerHTML = html;
+  }
+
+  /* One cell size for both bays, so a robot and a pad are the same size and the
+     two sides are honestly comparable. Only shrinks mid-round, never grows —
+     the grid must not jump around while he's looking at it. */
+  let cellNow = 34;
+  function sizeCells(force, needs){
+    const bays = $("#bays");
+    const lblw = $("#rowLbl").getBoundingClientRect().width || 30;
+    const lblh = $("#colLbl").getBoundingClientRect().height || 24;
+    const bayW = ($("#botBay").clientWidth || 160) - lblw - 6;
+    const bayH = (bays.clientHeight || 220) - lblh - 8;
+    const gap = 4;
+    let cell = 54;
+    needs.forEach(n => {
+      if (!n.cols || !n.rows) return;
+      cell = Math.min(cell,
+        (bayW - gap * (n.cols - 1)) / n.cols,
+        (bayH - gap * (n.rows - 1)) / n.rows);
+    });
+    cell = Math.max(11, Math.floor(cell));
+    if (force || cell < cellNow){
+      cellNow = cell;
+      document.documentElement.style.setProperty("--cell", cell + "px");
+    }
+  }
+
+  /* ---------------- the equation ---------------- */
+  function blanks(){
+    return R.blank === "ab" ? ["a","b"] : [R.blank];
+  }
+  function isBlank(which){ return blanks().indexOf(which) >= 0; }
+
+  function renderEq(state){
+    const part = which => {
+      const truth = which === "p" ? R.p : R[which];
+      if (!isBlank(which)) return '<span class="slot">' + truth + "</span>";
+      const typed = E[which];
+      let cls = "slot";
+      if (typed) cls += " filled";
+      if (focusKey === which && !state) cls += " on";
+      if (state) cls += " " + state;
+      return '<button type="button" class="' + cls + '" data-slot="' + which + '">' +
+             (typed === "" ? "?" : typed) + "</button>";
+    };
+    $("#eq").innerHTML =
+      part("a") + '<span class="op">&times;</span>' + part("b") +
+      '<span class="op">=</span>' + part("p");
+  }
+
+  function renderLabels(rows, cols){
+    const rl = $("#rowLbl"), cl = $("#colLbl"), pl = $("#padLbl");
+    rl.textContent = rows === null ? "?" : rows;
+    cl.textContent = cols === null ? "?" : cols;
+    rl.className = "lbl lbl-row" + (rows === null ? "" : " dim");
+    cl.className = "lbl lbl-col" + (cols === null ? "" : " dim");
+    pl.textContent = R.padsKnown ? R.p : "?";
+    pl.className = "lbl lbl-col dim";
+  }
+
+  /* ---------------- a round ---------------- */
+  function needyFact(L){
+    // Four rounds in ten, go back to a fact he's slow on or wrong on.
+    if (Math.random() > 0.4) return null;
+    const out = [];
+    for (const k in S.facts){
+      const f = S.facts[k], p = k.split("x").map(Number);
+      if (p[0] < L.lo || p[1] > L.hi || f.tries < 2) continue;
+      if (f.wrong / f.tries >= 0.25 || f.avg > 4200) out.push(p);
+    }
+    return out.length ? pick(out) : null;
+  }
+
+  function makeRound(){
+    const L = LEVELS[S.level];
+    let a, b;
+    const f = needyFact(L);
+    if (f){ a = f[0]; b = f[1]; }
+    else { a = ri(L.lo, L.hi); b = ri(L.lo, L.hi); }
+    if (Math.random() < 0.5){ const t = a; a = b; b = t; }
+
+    const st = S.stage;
+    const r = {
+      a:a, b:b, p:a*b,
+      blank: st === 3 ? (Math.random() < 0.5 ? "a" : "b") : (st === 4 ? "ab" : "p"),
+      hidden: st === 2,
+      padsKnown: st >= 3,
+      tries:0, hinted:false, peeked:false, lined:false, doorOpen:false
+    };
+    r.padCols = r.padsKnown ? neutralCols(r.p) : r.b;
+    return r;
+  }
+
+  function startRound(announce){
+    E = { a:"", b:"", p:"" };
+    focusKey = blanks()[0];
+    locked = false;
+    R.tries = 0; R.hinted = false; R.peeked = false; R.lined = false; R.doorOpen = false;
+    shownAt = Date.now();
+    drawAsk();
+    renderEq();
+    updateGo();
+    feedback(askLine(), "");
+    if (announce !== false) setTimeout(() => say(spokenProblem()), 280);
+    S.round = R; S.entry = E; persist();
+  }
+
+  function askLine(){
+    if (R.blank === "ab") return "Pick two numbers that fill every pad. No 1s — that's too easy.";
+    if (R.blank === "a")  return "How many rows of " + R.b + " fill all " + R.p + " pads?";
+    if (R.blank === "b")  return "How many robots go in each of the " + R.a + " rows?";
+    return R.hidden ? "The bay is shut. Work it out, then open the door." : "Count the robots. One pad each.";
+  }
+  function spokenProblem(){
+    if (R.blank === "ab") return "What times what equals " + R.p + "?";
+    if (R.blank === "a")  return "What times " + R.b + " equals " + R.p + "?";
+    if (R.blank === "b")  return R.a + " times what equals " + R.p + "?";
+    return R.a + " times " + R.b + " equals what?";
+  }
+
+  /* What's on the floor before he answers. */
+  function drawAsk(){
+    const door = $("#door");
+    let rows, cols;
+    if (R.blank === "p"){ rows = R.a; cols = R.b; }
+    else if (R.blank === "a"){ rows = 1;  cols = R.b; }
+    else if (R.blank === "b"){ rows = R.a; cols = 1; }
+    else { rows = 0; cols = 0; }
+
+    sizeCells(true, [
+      { rows:R.a, cols:R.b },
+      { rows:Math.ceil(R.p / R.padCols), cols:R.padCols }
+    ]);
+
+    drawCells($("#botCells"), rows * cols, cols, "bot");
+    drawCells($("#padCells"), R.padsKnown ? R.p : 0, R.padCols, "pad");
+
+    renderLabels(R.blank === "a" || R.blank === "ab" ? null : R.a,
+                 R.blank === "b" || R.blank === "ab" ? null : R.b);
+
+    door.hidden = !R.hidden || R.doorOpen;
+    door.classList.toggle("up", !R.hidden);
+  }
+
+  function feedback(msg, kind){
+    const f = $("#feedback");
+    f.textContent = msg || "";
+    f.className = kind || "";
+  }
+
+  /* ---------------- typing ---------------- */
+  function press(k){
+    if (locked) return;
+    if (k === "back"){
+      E[focusKey] = E[focusKey].slice(0, -1);
+      clunk();
+    } else if (k === "go"){
+      return go();
+    } else {
+      const max = R.blank === "ab" ? 2 : 3;
+      if (E[focusKey].length >= max) return;
+      if (E[focusKey] === "" && k === "0") return;     // no leading zero
+      E[focusKey] += k;
+      blip(+k);
+    }
+    renderEq();
+    updateGo();
+    S.entry = E; persist();
+  }
+
+  function go(){
+    const bs = blanks();
+    const empty = bs.filter(x => E[x] === "");
+    if (empty.length){
+      // Two blanks: the first press of Go just moves across.
+      if (E[focusKey] !== ""){ focusKey = empty[0]; renderEq(); updateGo(); }
+      return;
+    }
+    submit();
+  }
+
+  function updateGo(){
+    const bs = blanks();
+    const allIn = bs.every(x => E[x] !== "");
+    const btn = $("#goKey");
+    if (!btn) return;
+    btn.disabled = E[focusKey] === "" && !allIn;
+    btn.textContent = (allIn || bs.length === 1) ? "Go!" : "Next";
+  }
+
+  /* ---------------- checking ---------------- */
+  function claim(){
+    // What his answer says the factory looks like.
+    if (R.blank === "ab") return { rows:+E.a, cols:+E.b, pads:R.p };
+    if (R.blank === "a")  return { rows:+E.a, cols:R.b,  pads:R.p };
+    if (R.blank === "b")  return { rows:R.a,  cols:+E.b, pads:R.p };
+    return { rows:R.a, cols:R.b, pads:+E.p };
+  }
+
+  function submit(){
+    if (locked) return;
+    const c = claim();
+    const bots = c.rows * c.cols;
+
+    if (R.blank === "ab" && (c.rows < 2 || c.cols < 2)){
+      nope();
+      feedback("A 1 always works — that's the easy way out. Try two numbers bigger than 1.", "miss");
+      return;
+    }
+    if (bots > MAXCELLS || c.pads > MAXCELLS){
+      nope();
+      feedback("Whoa — that's more than this factory can hold. Have another look at the rows.", "miss");
+      return;
+    }
+
+    locked = true;
+    R.tries++;
+    S.attempts++;
+    const right = bots === c.pads;
+
+    if (R.tries === 1) recordFact(right);
+    renderEq(right ? "good" : "bad");
+    if (R.hidden){ $("#door").classList.add("up"); }
+
+    // Draw both sides as his answer describes them, then walk the robots over.
+    sizeCells(false, [
+      { rows:c.rows, cols:c.cols },
+      { rows:Math.ceil(c.pads / R.padCols), cols:R.padCols }
+    ]);
+    drawCells($("#botCells"), bots, c.cols, "bot");
+    drawCells($("#padCells"), c.pads, R.padCols, "pad");
+    renderLabels(c.rows, c.cols);
+    $("#padLbl").textContent = c.pads;
+
+    requestAnimationFrame(() => march(() => right ? succeed() : miss(bots, c.pads)));
+  }
+
+  /* Walk every robot to its pad, light the ones that get there, flash whatever
+     is left over on either side, then hand back to `after`. */
+  function march(after){
+    const bs = [].slice.call($("#botCells").children);
+    const ps = [].slice.call($("#padCells").children);
+    const n = Math.min(bs.length, ps.length);
+    const br = bs.map(el => el.getBoundingClientRect());
+    const pr = ps.map(el => el.getBoundingClientRect());
+
+    for (let i = 0; i < n; i++){
+      const d = Math.min(i * 26, 700);
+      bs[i].style.transitionDelay = d + "ms";
+      bs[i].style.transform = "translate(" + (pr[i].left - br[i].left) + "px," +
+                                            (pr[i].top  - br[i].top)  + "px)";
+      setTimeout((function(j){ return function(){ ps[j].classList.add("lit"); zap(j); }; })(i), 460 + d);
+    }
+    for (let i = n; i < bs.length; i++) bs[i].classList.add("extra");
+    for (let i = n; i < ps.length; i++) ps[i].classList.add("extra");
+
+    setTimeout(after, 640 + Math.min(n * 26, 700));
+  }
+
+  function marchHome(){
+    [].slice.call($("#botCells").children).forEach(b => {
+      b.style.transitionDelay = "0ms";
+      b.style.transform = "";
+      b.classList.remove("extra");
+    });
+    [].slice.call($("#padCells").children).forEach(p => p.classList.remove("lit","extra"));
+  }
+
+  /* ---------------- right ---------------- */
+  function succeed(){
+    yay();
+    const clean = R.tries === 1 && !R.peeked && !R.hinted;
+    S.rounds++;
+    if (clean) S.cleanRounds++;
+    S.charged += R.p;
+    $("#chargedNum").textContent = S.charged;
+
+    S.hist.push({ stage:S.stage, clean:clean });
+    S.levelHist.push({ level:S.level, clean:clean });
+    if (S.hist.length > 40) S.hist = S.hist.slice(-40);
+    if (S.levelHist.length > 40) S.levelHist = S.levelHist.slice(-40);
+
+    feedback(praise(clean), "good");
+    say(pick(["All charged!","Every robot has a pad.","Perfect fit.","Yes! Nobody left over."]), 1);
+
+    S.round = null; S.entry = null; persist();
+    setTimeout(() => {
+      considerLevel();
+      if (!considerStage()) nextRound();
+    }, 1500);
+  }
+
+  function praise(clean){
+    if (!clean) return "There it is — " + R.a + " rows of " + R.b + " is " + R.p + ".";
+    if (R.blank === "ab") return "Nice! " + (+E.a) + " rows of " + (+E.b) + " makes exactly " + R.p + ".";
+    if (R.blank === "a" || R.blank === "b")
+      return pick(["Got it — " + R.a + " rows of " + R.b + " is " + R.p + ".",
+                   "Yes! " + R.p + " pads, " + R.a + " rows, " + R.b + " in each."]);
+    return pick(["Every robot charging. " + R.a + " × " + R.b + " = " + R.p + ".",
+                 "Perfect — " + R.p + " robots, " + R.p + " pads.",
+                 "All " + R.p + " plugged in."]);
+  }
+
+  /* ---------------- wrong ---------------- */
+  function miss(bots, pads){
+    nope();
+    const over = bots - pads;
+    let msg = over > 0
+      ? bots + " robots, " + pads + " pads — " + over + " robot" + (over === 1 ? "" : "s") + " with nowhere to charge."
+      : pads + " pads, " + bots + " robots — " + (-over) + " pad" + (-over === 1 ? "" : "s") + " with nobody on " + (-over === 1 ? "it" : "them") + ".";
+
+    if (R.tries >= 3) return reveal(msg);
+
+    if (R.tries >= 2){
+      msg += " " + hint();
+      R.hinted = true;
+      S.hints++;
+    } else {
+      msg += R.blank === "p" ? " Count the rows again." :
+             (over > 0 ? " Try a smaller number." : " Try a bigger number.");
+    }
+    feedback(msg, "miss");
+    say(over > 0 ? "Too many robots." : "Not enough robots.");
+    persist();
+
+    setTimeout(() => {
+      marchHome();
+      setTimeout(() => {
+        E[blanks()[0]] = ""; if (R.blank === "ab") E.b = "";
+        focusKey = blanks()[0];
+        drawAsk();
+        renderEq();
+        updateGo();
+        locked = false;
+      }, 420);
+    }, 2100);
+  }
+
+  /* Point at one thing, not the whole answer. */
+  function hint(){
+    if (R.blank === "p" && R.hidden){
+      R.doorOpen = true;
+      $("#door").hidden = true;
+      return "Door's open — have a look and count them.";
+    }
+    if (R.blank === "p"){
+      return "Go along one row first: " + R.b + ", then " + (R.b*2) + ", then " + (R.b*3) + "…";
+    }
+    // Missing-factor rounds: tidy the pads into rows so the array shows itself.
+    R.padCols = R.blank === "ab" ? smallFactor(R.p) : R.b;
+    R.lined = true;
+    return R.blank === "ab"
+      ? "I've stacked them in rows of " + R.padCols + " — now count the rows."
+      : "I've lined the pads up in " + (R.blank === "b" ? R.a + " rows" : "rows of " + R.b) + " — now count " +
+        (R.blank === "b" ? "one row." : "the rows.");
+  }
+  function smallFactor(n){
+    for (let i = 2; i * i <= n; i++) if (n % i === 0) return i;
+    return n;
+  }
+
+  function reveal(msg){
+    const truth = R.blank === "ab" ? null : (R.blank === "p" ? R.p : R[R.blank]);
+    if (truth !== null) E[R.blank] = String(truth);
+    else { E.a = String(R.a); E.b = String(R.b); }
+    renderEq("told");
+
+    S.rounds++;
+    S.hist.push({ stage:S.stage, clean:false });
+    S.levelHist.push({ level:S.level, clean:false });
+    if (S.hist.length > 40) S.hist = S.hist.slice(-40);
+    if (S.levelHist.length > 40) S.levelHist = S.levelHist.slice(-40);
+
+    feedback(msg + " It was " + R.a + " rows of " + R.b + ". Watch.", "miss");
+    say("It was " + R.a + " times " + R.b + ", " + R.p + ".");
+    S.round = null; S.entry = null; persist();
+
+    // End the round on the picture that works, not on his wrong one.
+    setTimeout(() => {
+      marchHome();
+      setTimeout(() => {
+        R.padCols = R.b;
+        sizeCells(false, [{ rows:R.a, cols:R.b }, { rows:R.a, cols:R.b }]);
+        drawCells($("#botCells"), R.p, R.b, "bot");
+        drawCells($("#padCells"), R.p, R.b, "pad");
+        renderLabels(R.a, R.b);
+        $("#padLbl").textContent = R.p;
+        requestAnimationFrame(() => march(() => {
+          feedback(R.a + " rows of " + R.b + " is " + R.p + ". Try the next one.", "miss");
+          setTimeout(() => {
+            considerLevel();
+            if (!considerStage()) nextRound();
+          }, 1500);
+        }));
+      }, 380);
+    }, 2000);
+  }
+
+  function nextRound(){
+    R = makeRound();
+    startRound(true);
+  }
+
+  /* ---------------- facts ---------------- */
+  function recordFact(right){
+    // 4x5 and 5x4 are the same fact to a kid learning them, so they share a key.
+    const k = Math.min(R.a, R.b) + "x" + Math.max(R.a, R.b);
+    const f = S.facts[k] || { tries:0, wrong:0, avg:0 };
+    f.tries++;
+    if (!right) f.wrong++;
+    else {
+      const ms = Date.now() - shownAt;
+      f.avg = f.avg ? Math.round(f.avg * 0.65 + ms * 0.35) : ms;
+    }
+    S.facts[k] = f;
+  }
+
+  /* ---------------- moving him along ---------------- */
+  function considerLevel(){
+    const recent = S.levelHist.filter(h => h.level === S.level).slice(-6);
+    if (recent.length < 6) return;
+    const clean = recent.filter(r => r.clean).length;
+    if (clean >= 5 && S.level < LEVELS.length - 1){ S.level++; S.levelHist = []; }
+    else if (clean <= 2 && S.level > 0){ S.level--; S.levelHist = []; }
+    persist();
+  }
+
+  function considerStage(){
+    if (S.stageMode !== "auto") return false;
+    const recent = S.hist.filter(h => h.stage === S.stage);
+    const last8 = recent.slice(-8);
+    if (S.stage < 4 && last8.length >= 8 && last8.filter(r => r.clean).length >= 7){
+      return promote(S.stage + 1);
+    }
+    if (S.stage > 1){
+      const last6 = recent.slice(-6);
+      if (last6.length >= 6 && last6.filter(r => r.clean).length <= 2) return demote();
+    }
+    return false;
+  }
+
+  const PROMO = {
+    2:{ emoji:"\u{1F6AA}", head:"Bay Door Closed!",
+        body:"You can count a grid now, so the door is coming down. The numbers still tell you " +
+             "how many rows and how many in each row — work out the total <b>before</b> you open it. " +
+             "Tap the door if you really need a peek.",
+        voice:"The bay door is closing. Work it out before you look." },
+    3:{ emoji:"\u{1F50E}", head:"Missing Robots!",
+        body:"New puzzle: now one side is missing. You can see all the pads — figure out " +
+             "<b>how many robots go in each row</b>. That's multiplication running backwards.",
+        voice:"Now one side is missing. Figure out how many go in each row." },
+    4:{ emoji:"\u{1F454}", head:"Factory Boss!",
+        body:"You're in charge of the whole grid. I'll tell you how many pads; " +
+             "<b>you pick both numbers</b> so every single one gets a robot. No 1s — that's too easy.",
+        voice:"You're the boss now. Pick both numbers." }
+  };
+  const DEMO = {
+    1:{ emoji:"\u{1F916}", head:"Robots back out",
+        body:"Those last few were tricky, so the robots are coming back out where you can count them. " +
+             "The door shuts again once this feels easy.",
+        voice:"The robots are coming back out for a bit." },
+    2:{ emoji:"\u{1F6AA}", head:"Back to whole grids",
+        body:"Let's do some where both numbers are given again for a while.",
+        voice:"Back to whole grids for a bit." },
+    3:{ emoji:"\u{1F50E}", head:"One side at a time",
+        body:"Picking both numbers is hard. Back to finding just the missing side for a while.",
+        voice:"Back to finding just the missing side." }
+  };
+
+  function promote(to){
+    S.stage = to; S.hist = [];
+    renderStage(); persist();
+    fanfare();
+    celebrate(PROMO[to]);
+    return true;
+  }
+  function demote(){
+    S.stage = Math.max(1, S.stage - 1); S.hist = [];
+    renderStage(); persist();
+    celebrate(DEMO[S.stage]);
+    return true;
+  }
+
+  function celebrate(c){
+    locked = true;
+    const o = $("#overlay");
+    o.innerHTML =
+      '<div class="sheet">' +
+        '<div class="big">' + c.emoji + "</div>" +
+        "<h2>" + c.head + "</h2>" +
+        "<p>" + c.body + "</p>" +
+        '<div class="actions"><button class="btn" id="goOn">Back to the factory</button></div>' +
+      "</div>";
+    o.classList.add("open");
+    say(c.voice, 0.95);
+    $("#goOn").focus();
+    $("#goOn").onclick = () => {
+      o.classList.remove("open"); o.innerHTML = "";
+      nextRound();
+    };
+  }
+
+  function renderStage(){
+    $("#stageChip").innerHTML = "Stage " + S.stage + " <i>" + STAGE_WHAT[S.stage] + "</i>";
+  }
+
+  /* ---------------- grown-ups ---------------- */
+  // Shape and gate live in shared/grownups.js; this only supplies the content.
+  function panelConfig(){
+    const missed = [], slow = [], solid = [];
+    for (const k in S.facts){
+      const f = S.facts[k], label = k.split("x").join(" × ");
+      if (f.wrong > 0 && f.wrong / f.tries >= 0.25) missed.push(label);
+      else if (f.avg > 4200) slow.push(label);
+      else if (f.tries >= 2) solid.push(label);
+    }
+    const cleanPct = S.rounds ? Math.round(S.cleanRounds / S.rounds * 100) : 0;
+    const mins = Math.round((S.seconds + (Date.now() - sessionStart) / 1000) / 60);
+
+    const stageBlurb = {
+      1:"Both numbers are on the board and the robots are out where he can count them. He can get every " +
+        "one of these right by counting one robot at a time — that's fine, it's where multiplication starts.",
+      2:"Same problems, but the bay door is shut. He can't count, so he has to add the rows up or recall the fact.",
+      3:"One side is missing: <b>4 &times; ? = 20</b>. This is division wearing a different hat, and it's the " +
+        "step that tells you the facts are really his.",
+      4:"He's given the total and picks both numbers himself. Any pair that works counts — that's factoring."
+    }[S.stage];
+
+    const sections = [{
+      title: "Stage " + S.stage + " — " + STAGE_WHAT[S.stage],
+      html: "<p>" + stageBlurb + "</p>" +
+            '<p class="gu-muted">Numbers right now: ' + LEVELS[S.level].note + ". That rung moves on its own too — " +
+            "five clean rounds out of six and the numbers step up, two out of six and they step back down.</p>"
+    }];
+
+    let work = "";
+    if (!missed.length && !slow.length){
+      work = '<p class="gu-muted">' + (S.attempts < 12
+        ? "Not enough rounds yet. After a dozen or so this fills in with the exact facts he hesitates on."
+        : "Nothing is lagging. Everything he's hit is both right and quick.") + "</p>";
+    } else {
+      if (missed.length)
+        work += "<p>Getting these wrong:</p><div class=\"factlist\">" +
+          missed.map(x => '<span class="fact missed">' + x + "</span>").join("") + "</div>";
+      if (slow.length)
+        work += "<p>Right, but slow — he's still counting these out rather than knowing them:</p>" +
+          '<div class="factlist">' + slow.map(x => '<span class="fact slow">' + x + "</span>").join("") + "</div>";
+      work += '<p class="gu-muted">Slow is the more useful signal. A fact that takes him more than about four ' +
+              "seconds isn't automatic yet, and those are the ones that make long multiplication and division " +
+              "feel impossible in a couple of years. The game already hands these back to him more often.</p>";
+    }
+    sections.push({ title:"Facts to work on", html:work });
+
+    if (solid.length){
+      sections.push({ title:"Locked in", html:'<div class="factlist">' +
+        solid.slice(0, 24).map(x => '<span class="fact solid">' + x + "</span>").join("") + "</div>" });
+    }
+
+    sections.push({ title:"What to watch for", html:
+      "<p>The skill under all of this is seeing <b>4 &times; 5</b> as four rows of five, not as a flashcard. " +
+      "A child who has it will count a row and then skip count — 5, 10, 15, 20 — or just know it. " +
+      "A child who doesn't will touch every robot, one at a time. Both get the right answer, so the tell " +
+      "is how long it takes, which is what the list above measures.</p>" +
+      "<p>The usual sticking point isn't the 2s or the 5s; it's that rows and columns are interchangeable. " +
+      "If he treats <b>3 &times; 8</b> and <b>8 &times; 3</b> as two unrelated problems, that's worth a minute " +
+      "at the kitchen table — turn the grid sideways and count it again.</p>" +
+      (S.peeks || S.hints
+        ? '<p class="gu-muted">He has opened the bay door ' + S.peeks + " time" + (S.peeks === 1 ? "" : "s") +
+          " and taken " + S.hints + " hint" + (S.hints === 1 ? "" : "s") + ". Peeking is not cheating — " +
+          "it's him checking his own answer, which is the habit you want.</p>"
+        : "") });
+
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.rounds,          label:"Rounds finished" },
+        { value:cleanPct + "%",    label:"Right first try" },
+        { value:S.charged,         label:"Robots charged" },
+        { value:mins,              label:"Minutes played" }
+      ],
+      sections: sections,
+      settings: [
+        { label:"Stage", hint:"Auto moves him along on its own", value:S.stageMode,
+          options:[{value:"auto",label:"Auto"},{value:"1",label:"1"},{value:"2",label:"2"},
+                   {value:"3",label:"3"},{value:"4",label:"4"}],
+          onPick(v){
+            S.stageMode = v;
+            if (v !== "auto") S.stage = +v;
+            S.hist = []; renderStage(); persist();
+          } },
+        { label:"How big the numbers get", value:String(S.level),
+          options:LEVELS.map((l,i) => ({ value:String(i), label:String(i+1) })),
+          onPick(v){ S.level = +v; S.levelHist = []; persist(); } },
+        { label:"Robot sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); persist(); } },
+        { label:"Say the problem out loud", value:S.voice ? "1" : "0", options:onOff,
+          onPick(v){ S.voice = v === "1"; applySettings(); persist(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, so these numbers cover today only.</p>',
+      closeLabel: "Back to the factory",
+      onClose(){ nextRound(); },
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          renderStage();
+          $("#chargedNum").textContent = 0;
+          nextRound();
+        }
+      }
+    };
+  }
+
+  /* ---------------- wiring ---------------- */
+  function buildPad(){
+    const keys = ["1","2","3","4","5","6","7","8","9","back","0","go"];
+    $("#pad").innerHTML = keys.map(k => {
+      if (k === "back") return '<button class="key util" data-k="back" aria-label="Delete">&#9003;</button>';
+      if (k === "go")   return '<button class="key go" id="goKey" data-k="go">Next</button>';
+      return '<button class="key" data-k="' + k + '">' + k + "</button>";
+    }).join("");
+    $("#pad").addEventListener("click", e => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      Kit.audio();
+      press(b.dataset.k);
+    });
+  }
+
+  $("#eq").addEventListener("click", e => {
+    const b = e.target.closest("[data-slot]");
+    if (!b || locked) return;
+    focusKey = b.dataset.slot;
+    renderEq(); updateGo();
+  });
+
+  $("#peek").addEventListener("click", () => {
+    if (locked || !R || !R.hidden) return;
+    Kit.audio();
+    R.peeked = true; S.peeks++;
+    $("#door").classList.add("up");
+    feedback("Have a look — then close it up and answer.", "");
+    setTimeout(() => { if (R && R.hidden && !locked) $("#door").classList.remove("up"); }, 2800);
+    persist();
+  });
+
+  $("#grownups").addEventListener("click", () => { locked = true; Kit.hush(); Grownups.open(panelConfig); });
+
+  document.addEventListener("keydown", e => {
+    if (!R || $("#overlay").classList.contains("open") || Grownups.isOpen()) return;
+    Kit.audio();
+    if (e.key >= "0" && e.key <= "9") press(e.key);
+    else if (e.key === "Backspace"){ e.preventDefault(); press("back"); }
+    else if (e.key === "Enter"){ e.preventDefault(); press("go"); }
+  });
+
+  let rz = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => { if (R && !locked) drawAsk(); }, 180);
+  });
+
+  setInterval(() => { if (S){ S.seconds += 15; persist(); } }, 15000);
+  window.addEventListener("beforeunload", () => { if (S) store.set(KEY, S); });
+
+  /* ---------------- boot ---------------- */
+  (async function boot(){
+    const saved = await store.get(KEY);
+    S = saved && saved.facts ? Object.assign(freshState(), saved) : freshState();
+    applySettings();
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+
+    buildPad();
+    renderStage();
+    $("#chargedNum").textContent = S.charged;
+
+    if (S.round && S.round.p){
+      // pick up on the same problem he left on — startRound hands S.entry a
+      // fresh blank, so grab what he'd typed before it does
+      const typed = S.entry;
+      R = S.round;
+      startRound(false);
+      if (typed){ Object.assign(E, typed); renderEq(); updateGo(); }
+    } else {
+      nextRound();
+    }
+    persist();
+  })();
+
+})();
+</script>
+</body>
+</html>
