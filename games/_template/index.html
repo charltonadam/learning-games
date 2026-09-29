@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Game Template</title>
+<meta name="description" content="Skeleton for a new learning game. Copy the folder, then replace the game.">
+<!-- REPLACE: the emoji in the favicon data URI. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#129513;</text></svg>">
+
+<!-- These four, in this order. kit.css must load BEFORE the game's own <style>
+     so the game's .btn rules win and the panel's buttons match this game. -->
+<script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
+
+<style>
+  :root{
+    /* REPLACE: this game's palette. */
+    --ink:#22303B;
+    --paper:#FBFDFE;
+    --bg:#E7F0F5;
+    --bg-deep:#CFDFE8;
+    --accent:#2E7D5B;
+    --pop:#D6402E;
+    --gold:#E8B84B;
+    --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+
+    /* The grown-ups panel, themed for this game. All 13 of these are set by
+       every game — copy the block and repoint the values. (deep-dive also sets
+       --kit-on / --kit-on-ink to restyle the chosen button in a settings row;
+       they default to --kit-ink / --kit-paper.) */
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:rgba(34,48,59,.62);
+    --kit-paper:var(--paper);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(34,48,59,.06);
+    --kit-accent:var(--accent);
+    --kit-accent-ink:var(--paper);
+    --kit-danger:var(--pop);
+    --kit-danger-ink:var(--paper);
+    --kit-scrim:rgba(34,48,59,.6);
+    --kit-focus:var(--gold);
+    --kit-radius:18px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);color:var(--ink);background:var(--bg-deep);
+    overflow:hidden;touch-action:manipulation;
+  }
+  #app{
+    position:relative;height:100dvh;display:flex;flex-direction:column;
+    background:radial-gradient(120% 70% at 50% 0%, #FFFFFF 0%, var(--bg) 52%, var(--bg-deep) 100%);
+  }
+
+  /* grownups.js emits `btn`, `btn quiet ghost` and `btn danger` on the panel's
+     own buttons, so define all four or the panel won't match the game. */
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--paper);background:var(--accent);
+    border:none;border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;padding:.7em 1.4em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn:disabled{opacity:.4;cursor:default;transform:none;}
+  .btn.quiet,.btn.ghost{
+    background:transparent;color:var(--ink);
+    border:2px solid rgba(34,48,59,.35);border-bottom-width:2px;
+  }
+  .btn.danger{background:var(--pop);color:var(--paper);}
+  .btn:focus-visible{outline:4px solid var(--gold);outline-offset:3px;}
+
+  #bar{display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem .2rem;flex:none;}
+  #bar a,#bar button.chip{
+    background:rgba(255,255,255,.75);border:2px solid rgba(34,48,59,.22);
+    color:var(--ink);border-radius:12px;padding:.4em .75em;
+    font-family:var(--font);font-size:.8rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #stageChip{
+    background:var(--gold);border-radius:999px;padding:.32em .85em;
+    font-size:.78rem;font-weight:800;white-space:nowrap;
+  }
+  #stageChip i{font-style:normal;opacity:.65;}
+
+  /* REPLACE: everything from here to the keypad is the game itself. */
+  #play{
+    flex:1;min-height:0;position:relative;
+    display:flex;align-items:center;justify-content:center;
+    padding:.4rem clamp(10px,4vw,24px);
+  }
+  #things{position:relative;width:100%;height:100%;}
+  .thing{
+    position:absolute;width:clamp(26px,7vw,46px);height:clamp(26px,7vw,46px);
+    transform:translate(-50%,-50%);
+  }
+  .thing svg{width:100%;height:100%;display:block;}
+  #prompt{
+    flex:none;text-align:center;padding:.2rem 1rem 0;
+    font-size:clamp(1.05rem,4.2vw,1.5rem);font-weight:800;
+  }
+  #slot{
+    display:inline-block;min-width:2.2em;margin-left:.3em;
+    border-bottom:4px solid rgba(34,48,59,.35);
+    color:var(--accent);
+  }
+  #slot.good{color:var(--accent);animation:pop .3s ease;}
+  #slot.bad{color:var(--pop);animation:shake .34s ease;}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.14)}100%{transform:scale(1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}60%{transform:translateX(8px)}}
+
+  #feedback{
+    flex:none;min-height:2.4em;display:flex;align-items:center;justify-content:center;
+    padding:0 1rem;text-align:center;max-width:36ch;margin:0 auto;
+    font-size:clamp(.85rem,3.3vw,1.05rem);font-weight:700;line-height:1.3;
+    color:rgba(34,48,59,.66);
+  }
+  #feedback.good{color:var(--accent);}
+  #feedback.miss{color:var(--pop);}
+
+  #pad{
+    flex:none;display:grid;grid-template-columns:repeat(3,1fr);
+    gap:clamp(5px,1.6vw,9px);width:min(340px,100%);margin:0 auto;
+    padding:.3rem clamp(10px,4vw,16px) calc(.6rem + env(safe-area-inset-bottom,0px));
+  }
+  .key{
+    font-family:var(--font);font-size:clamp(1.15rem,5vw,1.5rem);font-weight:800;
+    padding:.5em 0;border-radius:13px;cursor:pointer;
+    background:var(--paper);color:var(--ink);
+    border:none;border-bottom:4px solid rgba(34,48,59,.3);
+  }
+  .key:active{transform:translateY(3px);border-bottom-width:1px;}
+  .key:focus-visible{outline:3px solid var(--gold);outline-offset:2px;}
+  .key.util{background:rgba(34,48,59,.12);}
+  .key.go{background:var(--accent);color:var(--paper);}
+  .key:disabled{opacity:.4;cursor:default;transform:none;}
+
+  /* The promotion overlay. Every game hand-rolls this; it is not in kit.css
+     because the celebration is part of the game's own voice. */
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(34,48,59,.62);padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--paper);border:4px solid var(--ink);border-radius:20px;
+    max-width:560px;width:100%;padding:1.2rem 1.3rem 1.3rem;
+    max-height:92dvh;overflow:auto;margin:auto;text-align:center;
+  }
+  .sheet h2{margin:.2rem 0 .5rem;font-size:1.45rem;}
+  .sheet p{margin:.35rem 0;font-size:.95rem;line-height:1.55;}
+  .sheet .big{font-size:3.2rem;line-height:1.1;}
+  .sheet .actions{display:flex;gap:.6rem;justify-content:center;margin-top:1.1rem;}
+
+  /* Required in every game, for the game's own animations.
+     kit.css already covers the panel's. */
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="chip" id="grownups">Grown-ups</button>
+    <span id="stageChip">Stage 1 <i>in a row</i></span>
+  </div>
+
+  <div id="play"><div id="things"></div></div>
+
+  <div id="prompt">How many? <span id="slot">?</span></div>
+  <div id="feedback" aria-live="polite"></div>
+  <div id="pad"></div>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+/* ============================================================================
+   GAME TEMPLATE — copy this folder to games/<your-game>/ and replace the game.
+
+   What is already wired for you, and what every game is expected to have:
+     - the four shared includes, in order, kit.css before this <style>
+     - the --kit-* block that themes the grown-ups panel
+     - persistence under one key, with a defensive merge on load
+     - a stage ladder and a separate difficulty rung, both auto-moving, both
+       able to move DOWN, each on its own window of evidence
+     - a celebration overlay that explains the new rule in the kid's words
+     - a panel config carrying all six required parts, in order
+     - sound + speech toggles mirrored onto Kit from the game's own saved state
+     - keyboard alongside touch, a back link, reduced-motion
+
+   Search for REPLACE to find every spot that is placeholder content.
+   Full reference: docs/adding-a-game.md
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const { ri, pick, store, say, tone } = Kit;
+
+  /* REPLACE: one key per game. Bump the suffix when the shape of the saved
+     state changes in a way the merge below can't absorb. */
+  const KEY = "template:v1";
+
+  /* REPLACE: the difficulty rung. This moves independently of the stage —
+     the stage is WHAT the game asks, the rung is HOW HARD the numbers are. */
+  const LEVELS = [
+    { note:"up to 5 things",  max:5  },
+    { note:"up to 10 things", max:10 },
+    { note:"up to 20 things", max:20 }
+  ];
+
+  /* REPLACE: the stage ladder. Real games run three or four. Each stage should
+     change what the game ASKS, not just its numbers. */
+  const STAGES = { 1:"in a row", 2:"scattered" };
+  const TOP_STAGE = 2;
+
+  let S = null;        // everything that persists
+  let R = null;        // the round in progress
+  let entry = "";      // what he's typed
+  let locked = false;  // true while animating, overlaid, or in the panel
+  let shownAt = 0;
+  let sessionStart = Date.now();
+
+  /* A burst of taps should write once, not once per tap. */
+  const persist = Kit.debounce(() => store.set(KEY, S), 350);
+
+  /* The game's saved state is the source of truth; Kit just mirrors it.
+     Called at boot and from every sound/speech onPick. */
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = S.voice;
+  }
+
+  function freshState(){
+    return {
+      stage:1, level:0,
+      stageMode:"auto",        // "auto" | "1" | "2" … — the panel's override
+      hist:[], levelHist:[],   // the evidence windows, cleared on each move
+      rounds:0, cleanRounds:0, attempts:0,
+      sound:true, voice:true,
+      seconds:0, sessions:0,
+      round:null               // so a reload lands on the same question
+    };
+  }
+
+  /* ---------------- sound: oscillators only, never audio files ------------ */
+  const blip = v => tone(420 + v * 26, 0.05, 0, "square", 0.07);
+  const yay  = () => [523,659,784,1046].forEach((f,i) => tone(f, 0.26, i*0.11, "triangle", 0.15));
+  const nope = () => { tone(200,0.16,0,"square",0.09); tone(150,0.2,0.13,"square",0.09); };
+  const fanfare = () => [392,523,659,784,1046].forEach((f,i) => tone(f, 0.3, i*0.12, "triangle", 0.15));
+
+  /* ---------------- the round -------------------------------------------- */
+  /* REPLACE: all of this. It is a placeholder game — count the blobs. */
+  function makeRound(){
+    const n = ri(2, LEVELS[S.level].max);
+    const spots = [];
+    for (let i = 0; i < n; i++){
+      spots.push(S.stage === 1
+        ? { x: (i + 0.5) / n * 100, y: 50 }
+        : { x: 8 + Math.random() * 84, y: 12 + Math.random() * 76 });
+    }
+    return { n:n, spots:spots, tries:0 };
+  }
+
+  function drawRound(){
+    $("#things").innerHTML = R.spots.map(s =>
+      '<div class="thing" style="left:' + s.x + '%;top:' + s.y + '%">' +
+        '<svg viewBox="0 0 40 40" aria-hidden="true">' +
+          '<circle cx="20" cy="20" r="16" fill="#2E7D5B"/>' +
+          '<circle cx="14" cy="15" r="4" fill="rgba(255,255,255,.55)"/>' +
+        "</svg></div>").join("");
+  }
+
+  function startRound(announce){
+    entry = "";
+    locked = false;
+    R.tries = 0;
+    shownAt = Date.now();
+    drawRound();
+    renderSlot();
+    feedback(S.stage === 1 ? "Count them and tap the number." : "They're all over the place. Count carefully.", "");
+    if (announce !== false) setTimeout(() => say("How many?"), 260);
+    S.round = R; persist();
+  }
+
+  function renderSlot(state){
+    const el = $("#slot");
+    el.textContent = entry === "" ? "?" : entry;
+    el.className = state || "";
+    const go = $("#goKey");
+    if (go) go.disabled = entry === "";
+  }
+
+  function feedback(msg, kind){
+    const f = $("#feedback");
+    f.textContent = msg || "";
+    f.className = kind || "";
+  }
+
+  /* ---------------- answering -------------------------------------------- */
+  function press(k){
+    if (locked) return;
+    if (k === "back") entry = entry.slice(0, -1);
+    else if (k === "go") return submit();
+    else if (entry.length < 2 && !(entry === "" && k === "0")){ entry += k; blip(+k); }
+    renderSlot();
+  }
+
+  function submit(){
+    if (locked || entry === "") return;
+    locked = true;
+    R.tries++;
+    S.attempts++;
+    const right = +entry === R.n;
+
+    if (right) return succeed();
+
+    nope();
+    renderSlot("bad");
+    /* Never scold, and name the next move. Two tries, then tell him. */
+    if (R.tries >= 2) return reveal();
+    feedback(+entry < R.n ? "Not quite — there are more than that. Try again."
+                          : "Not quite — that's a few too many. Try again.", "miss");
+    say("Try again.");
+    setTimeout(() => { entry = ""; renderSlot(); locked = false; }, 900);
+  }
+
+  function succeed(){
+    yay();
+    renderSlot("good");
+    const clean = R.tries === 1;
+    S.rounds++;
+    if (clean) S.cleanRounds++;
+    record(clean);
+    feedback(pick(["Yes! " + R.n + ".", "That's " + R.n + ". Nice counting.", "Exactly " + R.n + "."]), "good");
+    say(pick(["Yes!", "That's right.", "Nice counting."]), 1);
+    S.round = null; persist();
+    setTimeout(finishRound, 1400);
+  }
+
+  function reveal(){
+    S.rounds++;
+    record(false);
+    feedback("It was " + R.n + ". Try the next one.", "miss");
+    say("It was " + R.n + ".");
+    entry = String(R.n);
+    renderSlot("bad");
+    S.round = null; persist();
+    setTimeout(finishRound, 1900);
+  }
+
+  function record(clean){
+    S.hist.push({ stage:S.stage, clean:clean });
+    S.levelHist.push({ level:S.level, clean:clean });
+    if (S.hist.length > 40) S.hist = S.hist.slice(-40);
+    if (S.levelHist.length > 40) S.levelHist = S.levelHist.slice(-40);
+  }
+
+  function finishRound(){
+    considerLevel();
+    if (!considerStage()) nextRound();
+  }
+  function nextRound(){ R = makeRound(); startRound(true); }
+
+  /* ---------------- moving him along -------------------------------------
+     The contract, in every game: a WINDOW of evidence, never one answer; a
+     demotion path; and the window clears on a move so the next judgement is
+     fresh. Tune the numbers, keep the shape. */
+  function considerLevel(){
+    const recent = S.levelHist.filter(h => h.level === S.level).slice(-6);
+    if (recent.length < 6) return;
+    const clean = recent.filter(r => r.clean).length;
+    if (clean >= 5 && S.level < LEVELS.length - 1){ S.level++; S.levelHist = []; }
+    else if (clean <= 2 && S.level > 0){ S.level--; S.levelHist = []; }
+    persist();
+  }
+
+  function considerStage(){
+    if (S.stageMode !== "auto") return false;           // the panel pinned it
+    const recent = S.hist.filter(h => h.stage === S.stage);
+    const last8 = recent.slice(-8);
+    if (S.stage < TOP_STAGE && last8.length >= 8 && last8.filter(r => r.clean).length >= 7){
+      return promote(S.stage + 1);
+    }
+    if (S.stage > 1){
+      const last6 = recent.slice(-6);
+      if (last6.length >= 6 && last6.filter(r => r.clean).length <= 2) return demote();
+    }
+    return false;
+  }
+
+  /* REPLACE: the copy. Explain the NEW RULE in his words, not "level up". */
+  const PROMO = {
+    2:{ emoji:"\u{1F500}", head:"Mixed Up!",
+        body:"You can count a neat row now, so they're going to scatter. " +
+             "Same job — just harder to keep your place.",
+        voice:"They're going to scatter now." }
+  };
+  const DEMO = {
+    1:{ emoji:"\u{1F4CF}", head:"Back in a row",
+        body:"Those last few were tricky, so they'll line up again for a while.",
+        voice:"They'll line up again for a bit." }
+  };
+
+  function promote(to){
+    S.stage = to; S.hist = [];
+    renderStage(); persist();
+    fanfare();
+    celebrate(PROMO[to]);
+    return true;
+  }
+  function demote(){
+    S.stage = Math.max(1, S.stage - 1); S.hist = [];
+    renderStage(); persist();
+    celebrate(DEMO[S.stage]);
+    return true;
+  }
+
+  function celebrate(c){
+    locked = true;
+    const o = $("#overlay");
+    o.innerHTML =
+      '<div class="sheet">' +
+        '<div class="big">' + c.emoji + "</div>" +
+        "<h2>" + c.head + "</h2><p>" + c.body + "</p>" +
+        '<div class="actions"><button class="btn" id="goOn">Keep going</button></div>' +
+      "</div>";
+    o.classList.add("open");
+    say(c.voice, 0.95);
+    $("#goOn").focus();
+    $("#goOn").onclick = () => { o.classList.remove("open"); o.innerHTML = ""; nextRound(); };
+  }
+
+  function renderStage(){
+    $("#stageChip").innerHTML = "Stage " + S.stage + " <i>" + STAGES[S.stage] + "</i>";
+  }
+
+  /* ---------------- grown-ups --------------------------------------------
+     Shape and gate live in shared/grownups.js; this supplies only content.
+     The six parts, in this order: framing line, stats, what the numbers mean
+     for a kid this age, settings for everything the game auto-adjusts,
+     reset behind its confirm, footer storage warning. */
+  function panelConfig(){
+    const cleanPct = S.rounds ? Math.round(S.cleanRounds / S.rounds * 100) : 0;
+    const mins = Math.round((S.seconds + (Date.now() - sessionStart) / 1000) / 60);
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.rounds,       label:"Rounds finished" },
+        { value:cleanPct + "%", label:"Right first try" },
+        { value:mins,           label:"Minutes played" }
+      ],
+      sections: [
+        { title:"Stage " + S.stage + " — " + STAGES[S.stage],
+          html:"<p>REPLACE: what this stage actually asks of him.</p>" +
+               '<p class="gu-muted">Difficulty right now: ' + LEVELS[S.level].note +
+               ". That rung moves on its own — five clean rounds out of six and it steps up, " +
+               "two out of six and it steps back down.</p>" },
+        /* The most valuable section. Name the real skill and the real sticking
+           point, in a parent's words. Not percentages, not edu-jargon. */
+        { title:"What to watch for",
+          html:"<p>REPLACE: the skill under this game, and the specific thing that " +
+               "trips up a child this age — the thing you'd actually notice at the " +
+               "kitchen table.</p>" }
+      ],
+      settings: [
+        /* Cover EVERYTHING the game auto-adjusts, with Auto selected by default. */
+        { label:"Stage", hint:"Auto moves him along on its own", value:S.stageMode,
+          options:[{value:"auto",label:"Auto"}].concat(
+            Object.keys(STAGES).map(k => ({ value:k, label:k }))),
+          onPick(v){
+            S.stageMode = v;
+            if (v !== "auto") S.stage = +v;
+            S.hist = []; renderStage(); persist();
+          } },
+        { label:"Difficulty", value:String(S.level),
+          options:LEVELS.map((l,i) => ({ value:String(i), label:String(i+1) })),
+          onPick(v){ S.level = +v; S.levelHist = []; persist(); } },
+        { label:"Sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); persist(); } },
+        { label:"Say it out loud", value:S.voice ? "1" : "0", options:onOff,
+          onPick(v){ S.voice = v === "1"; applySettings(); persist(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, ' +
+        "so these numbers cover today only.</p>",
+      closeLabel: "Back to the game",
+      onClose(){ nextRound(); },
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        /* run() replaces onClose, so it must resume play itself. */
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          renderStage(); nextRound();
+        }
+      }
+    };
+  }
+
+  /* ---------------- wiring ------------------------------------------------ */
+  function buildPad(){
+    const keys = ["1","2","3","4","5","6","7","8","9","back","0","go"];
+    $("#pad").innerHTML = keys.map(k =>
+      k === "back" ? '<button class="key util" data-k="back" aria-label="Delete">&#9003;</button>' :
+      k === "go"   ? '<button class="key go" id="goKey" data-k="go">Go!</button>' :
+                     '<button class="key" data-k="' + k + '">' + k + "</button>").join("");
+    $("#pad").addEventListener("click", e => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      Kit.audio();            // AudioContext needs a user gesture before it works
+      press(b.dataset.k);
+    });
+  }
+
+  $("#grownups").addEventListener("click", () => { locked = true; Kit.hush(); Grownups.open(panelConfig); });
+
+  document.addEventListener("keydown", e => {
+    /* Always check both the game's own overlay and the panel. */
+    if (!R || $("#overlay").classList.contains("open") || Grownups.isOpen()) return;
+    Kit.audio();
+    if (e.key >= "0" && e.key <= "9") press(e.key);
+    else if (e.key === "Backspace"){ e.preventDefault(); press("back"); }
+    else if (e.key === "Enter"){ e.preventDefault(); press("go"); }
+  });
+
+  /* Minutes played, and a last write on the way out. */
+  setInterval(() => { if (S){ S.seconds += 15; persist(); } }, 15000);
+  window.addEventListener("beforeunload", () => { if (S) store.set(KEY, S); });
+
+  /* ---------------- boot -------------------------------------------------- */
+  (async function boot(){
+    const saved = await store.get(KEY);
+    /* Defensive merge: backfill anything freshState() has gained since he last
+       played, so a code change never wipes his progress. The guard checks a
+       field that has always existed. */
+    S = saved && saved.hist ? Object.assign(freshState(), saved) : freshState();
+    applySettings();
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+
+    buildPad();
+    renderStage();
+
+    if (S.round && S.round.n){ R = S.round; startRound(false); }   // same question he left on
+    else nextRound();
+    persist();
+  })();
+
+})();
+</script>
+</body>
+</html>

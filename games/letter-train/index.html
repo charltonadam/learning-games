@@ -383,7 +383,7 @@
       caseMode: "mix",
       lastIntroCase: "upper",
       choiceMode: "auto",
-      showTarget: true,
+      showTarget: false,
       sound: true,
       autoIntroduce: true,
       totalRight: 0,
@@ -808,7 +808,7 @@
       S = saved;
       S.cargo = S.cargo || [];
       S.locked = false;
-      if (typeof S.showTarget !== "boolean") S.showTarget = true;
+      if (typeof S.showTarget !== "boolean") S.showTarget = false;
       // Saves from before lowercase existed only carry the 26 capitals.
       GLYPHS.forEach(g => {
         if (!S.letters[g]) S.letters[g] = {active:false, streak:0, right:0, wrong:0, mastered:false};

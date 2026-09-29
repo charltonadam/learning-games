@@ -9,7 +9,8 @@ Pages. No build step, no dependencies, no tests, no framework. `index.html` at t
 menu; each game is a single `games/<name>/index.html` holding its own CSS, SVG/emoji art and JS
 in one `<script>` IIFE, on top of four shared files in `shared/`. The one game with extra files
 is silly-stories, which keeps its story DSL in `games/silly-stories/stories.js` and one story
-per file in `games/silly-stories/stories/`.
+per file in `games/silly-stories/stories/`. `games/_template/` is not a game — it is the
+skeleton you copy to start one; `docs/adding-a-game.md` is its reference.
 
 **What is shared and what is copied is a deliberate line: share what must stay identical
 across games, keep in the game what is allowed to differ.**
@@ -67,7 +68,8 @@ Games talk to `Kit.store` (`get` parses JSON, `set` stringifies, `del`), which f
 memory so a game still plays through a session when storage is blocked; `Kit.store.ok` says
 whether it's really saving, and the panel tells the parent when it isn't.
 
-One key per game: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`, `sillystories:v1`.
+One key per game: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`, `sillystories:v1`,
+`robotfactory:v1`.
 Bump the suffix or migrate defensively (`Object.assign(freshState(), saved)`, backfilling new fields) — kids'
 progress should survive a code change.
 
@@ -92,6 +94,12 @@ but the contract is the same — no menus of levels, no score to chase, and it c
   it comes back. A separate rung picks which story levels he's offered, on how much of the last
   two stories he typed instead of tapped (≥70% up, ≤34% down). A word the lists don't know is
   neutral — never wrong — so made-up words cost him nothing.
+
+- **robot-factory** — four stages of what the game *asks*: count the array, then the same
+  problem with the robots hidden, then a missing factor (`4 × ? = 20`), then both factors his
+  to choose. Promote on 7-of-8 clean, demote on ≤2-of-6, with a separate number-size rung on
+  5-of-6 / 2-of-6. Per-fact timing keys `4×5` and `5×4` together, since to a kid learning them
+  they are one fact — the same grid turned sideways.
 
 When adding progression: require a *window* of evidence (not one right answer), include a
 demotion path, and celebrate a promotion with an overlay that explains the new rule in the
@@ -172,7 +180,15 @@ edu-jargon. Kid-facing text is short, concrete and never scolds ("It was 7. Try 
 
 ## Adding a game
 
-1. Create `games/<name>/index.html` with, in the head:
+**Copy `games/_template/` to `games/<name>/`, search it for `REPLACE`, and read
+`docs/adding-a-game.md` — between them you should not need to open another game.**
+The template is a working game with the whole skeleton wired; the doc has the exact
+`Kit` / `Grownups` signatures and the gotchas behind them. The underscore keeps the
+template out of the published site, so leave it there.
+
+In outline:
+
+1. `games/<name>/index.html` with, in the head:
 
    ```html
    <script src="../../shared/storage.js"></script>
@@ -183,8 +199,10 @@ edu-jargon. Kid-facing text is short, concrete and never scolds ("It was 7. Try 
 
    `kit.css` must come before the game's own `<style>`, so the game's `.btn` rules win and the
    panel's buttons look like the rest of that game.
-2. Theme the panel by setting the `--kit-*` vars in the game's `:root` (see any game for the
-   list) and wire the grown-ups button to `Grownups.open(panelConfig)`.
+2. Theme the panel by setting the thirteen `--kit-*` vars in the game's `:root` (listed in
+   `docs/adding-a-game.md`, and already in the template) and wire the grown-ups button to
+   `Grownups.open(panelConfig)`. Define `.btn`, `.btn.quiet`, `.btn.ghost` and `.btn.danger` —
+   the panel emits those classes on its own buttons so they match the game.
 3. Add a card to the root `index.html`: an `<li><a class="card <accent>">` with a 16:9 inline
    SVG `.art`, title, one-sentence description in the same voice, a `.go` link line, and two
    `.tag` chips naming the skills. Add the `.<accent> .art/.go/.tag` colour block next to the
