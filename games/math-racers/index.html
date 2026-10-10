@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Math Racers</title>
+<meta name="description" content="A drag race powered by quick adding and taking away.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127950;</text></svg>">
+
+<script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
+
+<style>
+  :root{
+    --ink:#1D232E;
+    --paper:#FFFDF8;
+    --dash:#1E242E;
+    --dash-2:#2B3340;
+    --dash-ink:#F3F5F8;
+    --sky-top:#8FD0F2;
+    --sky:#D3F0FC;
+    --asphalt:#3B4049;
+    --accent:#E8541E;
+    --pop:#C62828;
+    --go:#2FA84F;
+    --gold:#F2B92C;
+    --font:'Avenir Next','Futura','Trebuchet MS',Verdana,sans-serif;
+
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:rgba(29,35,46,.62);
+    --kit-paper:var(--paper);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(29,35,46,.06);
+    --kit-accent:var(--accent);
+    --kit-accent-ink:var(--paper);
+    --kit-danger:var(--pop);
+    --kit-danger-ink:var(--paper);
+    --kit-scrim:rgba(29,35,46,.6);
+    --kit-focus:var(--gold);
+    --kit-radius:18px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);color:var(--ink);background:var(--dash);
+    overflow:hidden;touch-action:manipulation;
+  }
+  #app{position:relative;height:100dvh;display:flex;flex-direction:column;background:var(--dash);}
+
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--paper);background:var(--accent);
+    border:none;border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;padding:.7em 1.4em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn:disabled{opacity:.4;cursor:default;transform:none;}
+  .btn.quiet,.btn.ghost{
+    background:transparent;color:var(--ink);
+    border:2px solid rgba(29,35,46,.35);border-bottom-width:2px;
+  }
+  .btn.danger{background:var(--pop);color:var(--paper);}
+  .btn:focus-visible{outline:4px solid var(--gold);outline-offset:3px;}
+
+  #bar{
+    display:flex;align-items:center;gap:.45rem;padding:.55rem .8rem .45rem;flex:none;
+    background:var(--sky-top);
+  }
+  #bar a,#bar button.chip{
+    background:rgba(255,255,255,.75);border:2px solid rgba(29,35,46,.22);
+    color:var(--ink);border-radius:12px;padding:.4em .75em;
+    font-family:var(--font);font-size:.8rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #stageChip{
+    border-radius:999px;padding:.32em .85em;border:2px solid rgba(29,35,46,.25);
+    font-size:.78rem;font-weight:800;white-space:nowrap;
+  }
+
+  /* ---------------- the drag strip, side on ---------------- */
+  #track{
+    position:relative;flex:none;height:clamp(150px,36dvh,320px);overflow:hidden;
+    background:linear-gradient(var(--sky-top), var(--sky) 30%);
+  }
+  #stands{
+    position:absolute;left:0;right:0;top:16%;height:24%;
+    background-color:#566070;
+    background-image:
+      radial-gradient(circle, #F2B92C 0 3px, transparent 3.6px),
+      radial-gradient(circle, #E8541E 0 3px, transparent 3.6px),
+      radial-gradient(circle, #FFFFFF 0 3px, transparent 3.6px),
+      radial-gradient(circle, #4FB3E8 0 3px, transparent 3.6px);
+    background-size:22px 13px, 30px 17px, 38px 11px, 26px 15px;
+    border-top:5px solid #3B4452;
+  }
+  #wall{
+    position:absolute;left:0;right:0;top:40%;height:4%;
+    background:repeating-linear-gradient(90deg,#E8541E 0 22px,#FFFFFF 22px 44px);
+    border-bottom:2px solid rgba(0,0,0,.25);
+  }
+  #road{
+    position:absolute;left:0;right:0;top:44%;bottom:0;
+    background:linear-gradient(var(--asphalt), #2E333B);
+  }
+  #divider{
+    position:absolute;left:0;right:0;bottom:33%;height:3px;
+    background:repeating-linear-gradient(90deg,rgba(255,255,255,.75) 0 26px,transparent 26px 56px);
+  }
+  .line{position:absolute;top:44%;bottom:0;width:5px;background:#FFFFFF;}
+  #finishLine{
+    width:14px;
+    background:repeating-conic-gradient(#111 0% 25%, #fff 0% 50%) 0 0/14px 14px;
+  }
+  #flag{
+    position:absolute;top:2%;font-size:clamp(1.3rem,4.5vw,2rem);
+    transform:translateX(-30%);
+  }
+  #clock{
+    position:absolute;top:6px;left:8px;
+    background:rgba(29,35,46,.72);color:#fff;border-radius:10px;
+    padding:.2em .55em;font-weight:800;font-size:clamp(.8rem,2.8vw,1rem);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .car{
+    position:absolute;left:0;width:clamp(64px,15vw,130px);
+    transform-origin:left bottom;will-change:transform;
+  }
+  .car svg{display:block;width:100%;height:auto;overflow:visible;}
+  #me{bottom:5%;}
+  #rival{bottom:38%;}
+  .car .who{
+    position:absolute;bottom:100%;left:58%;transform:translateX(-50%);
+    background:rgba(29,35,46,.7);color:#fff;border-radius:999px;
+    padding:.05em .55em;font-size:clamp(.6rem,2.2vw,.78rem);font-weight:800;white-space:nowrap;
+  }
+  .car .flame{opacity:0;}
+  .car.boost .flame{opacity:1;animation:flicker .09s steps(2) infinite;}
+  @keyframes flicker{50%{transform:scaleX(.75);}}
+  .car .lines{
+    position:absolute;right:100%;top:25%;width:55%;height:45%;opacity:0;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.85) 0 2px,transparent 2px 9px);
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000);
+            mask-image:linear-gradient(90deg,transparent,#000);
+  }
+
+  #lights{
+    position:absolute;top:6%;left:50%;transform:translateX(-50%);
+    display:none;gap:7px;padding:7px 9px;border-radius:14px;background:#1D232E;
+  }
+  #lights.on{display:flex;}
+  #lights b{
+    width:clamp(18px,5vw,28px);height:clamp(18px,5vw,28px);border-radius:50%;
+    background:#3A414D;
+  }
+  #lights b.amber{background:#FFB21E;box-shadow:0 0 14px #FFB21E;}
+  #lights b.green{background:#3BE36C;box-shadow:0 0 16px #3BE36C;}
+
+  /* ---------------- the dashboard ---------------- */
+  /* The dash is a grid: gauge on the left, the problem and keypad beside it.
+     On a narrow portrait screen the keypad drops under both, full width. */
+  #dash{
+    flex:1;min-height:0;display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+    grid-template-rows:1fr auto auto auto 1fr;
+    grid-template-areas:"g ." "g p" "g f" "g k" "g .";
+    column-gap:clamp(8px,3vw,32px);row-gap:clamp(4px,1.2dvh,10px);
+    padding:.5rem clamp(10px,3vw,24px) calc(.6rem + env(safe-area-inset-bottom,0px));
+    max-width:860px;width:100%;margin:0 auto;
+  }
+  /* The gauge fills whatever room the grid leaves it, and never sets that
+     room itself — otherwise a short screen gets pushed off the bottom. */
+  #gaugeBox{grid-area:g;position:relative;min-height:0;min-width:0;}
+  #gauge{
+    position:absolute;inset:0;margin:auto;display:block;
+    width:100%;height:100%;max-width:300px;max-height:300px;
+  }
+  #gauge.boost .face{stroke:var(--gold);}
+  #problem{grid-area:p;}
+  #feedback{grid-area:f;}
+  #pad{grid-area:k;justify-self:center;}
+  @media (max-width:600px) and (orientation:portrait){
+    #dash{
+      grid-template-columns:clamp(104px,34vw,170px) minmax(0,1fr);
+      grid-template-rows:auto auto 1fr;
+      grid-template-areas:"g p" "g f" "k k";
+    }
+    #gaugeBox{min-height:clamp(104px,32vw,170px);}
+    #pad{align-self:end;width:min(360px,100%);}
+  }
+  #problem{
+    min-width:0;min-height:1.45em;display:flex;align-items:center;justify-content:center;gap:.3em;
+    color:var(--dash-ink);font-weight:800;white-space:nowrap;
+    font-size:clamp(1.9rem,8.5vw,3.4rem);font-variant-numeric:tabular-nums;
+  }
+  #problem .btn{font-size:clamp(1.05rem,4.4vw,1.35rem);background:var(--go);}
+  #problem .ready{font-size:.6em;opacity:.8;}
+  #slot{
+    display:inline-block;min-width:1.7em;text-align:center;line-height:1.25;
+    background:var(--dash-2);border-radius:12px;border-bottom:4px solid rgba(255,255,255,.18);
+    color:var(--gold);padding:0 .15em;
+  }
+  #slot.good{color:#5BE38A;animation:pop .26s ease;}
+  #slot.bad{color:#FF7A6B;animation:shake .34s ease;}
+  #slot.reveal{color:var(--gold);}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.16)}100%{transform:scale(1)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}60%{transform:translateX(8px)}}
+
+  #feedback{
+    min-height:2.5em;display:flex;align-items:center;justify-content:center;text-align:center;
+    max-width:32ch;justify-self:center;font-size:clamp(.8rem,3vw,1rem);font-weight:700;line-height:1.3;
+    color:rgba(243,245,248,.72);
+  }
+  #feedback.good{color:#5BE38A;}
+  #feedback.miss{color:#FFB3A8;}
+
+  #pad{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    gap:clamp(5px,1.4vw,9px);width:min(330px,100%);
+  }
+  .key{
+    font-family:var(--font);font-size:clamp(1.1rem,4.8vw,1.5rem);font-weight:800;
+    padding:.42em 0;border-radius:13px;cursor:pointer;
+    background:var(--dash-ink);color:var(--ink);
+    border:none;border-bottom:4px solid rgba(0,0,0,.45);
+  }
+  .key:active{transform:translateY(3px);border-bottom-width:1px;}
+  .key:focus-visible{outline:3px solid var(--gold);outline-offset:2px;}
+  .key.util{background:#8E99A8;}
+  .key.go{background:var(--go);color:#fff;}
+  .key:disabled{opacity:.35;cursor:default;transform:none;}
+
+  /* A short landscape phone: the keypad goes to two rows. */
+  @media (max-height:520px) and (orientation:landscape){
+    #track{height:36dvh;min-height:0;}
+    #pad{grid-template-columns:repeat(6,1fr);width:min(420px,100%);}
+    .key{padding:.22em 0;font-size:1.15rem;}
+    #feedback{min-height:1.4em;}
+    #problem{font-size:clamp(1.5rem,7dvh,2.4rem);}
+  }
+
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(29,35,46,.62);padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--paper);border:4px solid var(--ink);border-radius:20px;
+    max-width:560px;width:100%;padding:1.2rem 1.3rem 1.3rem;
+    max-height:92dvh;overflow:auto;margin:auto;text-align:center;
+  }
+  .sheet h2{margin:.2rem 0 .5rem;font-size:1.45rem;}
+  .sheet p{margin:.35rem 0;font-size:.95rem;line-height:1.55;}
+  .sheet .big{font-size:3.2rem;line-height:1.1;}
+  .sheet .time{font-size:2.2rem;font-weight:800;margin:.1rem 0;}
+
+  /* The circuit picker: four big medal-coloured buttons. */
+  .picks{display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,2.4vw,14px);margin-top:.8rem;}
+  .pick{
+    font-family:var(--font);color:var(--ink);background:var(--medal);cursor:pointer;
+    border:3px solid var(--ink);border-bottom-width:6px;border-radius:16px;
+    padding:.6em .4em .55em;display:flex;flex-direction:column;align-items:center;gap:.1em;
+  }
+  .pick:active{transform:translateY(3px);border-bottom-width:3px;}
+  .pick:focus-visible{outline:4px solid var(--accent);outline-offset:3px;}
+  .pick .pe{font-size:clamp(1.7rem,7vw,2.3rem);line-height:1.1;}
+  .pick b{font-size:clamp(1rem,4vw,1.2rem);}
+  .pick .px{font-weight:800;font-size:clamp(1rem,4vw,1.15rem);opacity:.8;}
+  .pick small{font-weight:700;font-size:.78rem;opacity:.75;min-height:1.2em;}
+  .sheet .actions .btn.quiet{color:var(--ink);}
+
+  /* Tables inside the grown-ups panel. */
+  .rt{width:100%;border-collapse:collapse;font-size:.88rem;margin:.3rem 0 .5rem;}
+  .rt th,.rt td{text-align:left;padding:.35em .4em;border-bottom:1px solid var(--kit-tile);}
+  .rt td{white-space:nowrap;}
+  .rt th{font-size:.78rem;color:var(--kit-muted);font-weight:700;}
+  .rt tr.now td{font-weight:800;}
+  .sheet .actions{display:flex;gap:.6rem;justify-content:center;margin-top:1.1rem;}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="chip" id="grownups">Grown-ups</button>
+    <span id="stageChip"></span>
+  </div>
+
+  <div id="track" aria-hidden="true">
+    <div id="stands"></div>
+    <div id="wall"></div>
+    <div id="road"><div id="divider"></div></div>
+    <div class="line" id="startLine"></div>
+    <div class="line" id="finishLine"></div>
+    <div id="flag">&#127937;</div>
+    <div class="car" id="rival"></div>
+    <div class="car" id="me"></div>
+    <div id="lights"><b></b><b></b><b></b><b></b></div>
+    <div id="clock">0.0s</div>
+  </div>
+
+  <div id="dash">
+    <div id="gaugeBox"></div>
+    <div id="problem"></div>
+    <div id="feedback" aria-live="polite"></div>
+    <div id="pad"></div>
+  </div>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+/* ============================================================================
+   MATH RACERS — a side-on drag race. The speedometer drains on its own; every
+   right answer is a burst of speed. The track is a fixed length, so quicker,
+   surer answers mean a quicker race.
+
+   He picks the CIRCUIT (what kind of sum) himself before each race:
+   bronze, silver, gold or platinum. What moves on its own is BLUE BOLT, the
+   other car, whose pace is kept per circuit and nudged after every race so he
+   wins some and loses some.
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const { pick, store, tone } = Kit;
+
+  const KEY = "mathracers:v1";
+
+  /* The car. Speed is 0..1 of top speed. With no answers it decays
+     exponentially (so it drains fast at the top and gently near the bottom —
+     a slow thinker still rolls along). A right answer adds BOOST, anything
+     above top speed is lost, and the green light launches him at LAUNCH.
+     The road is DIST top-speed-seconds long. Tuned by simulation: an answer
+     every 3 seconds holds the needle near the top and finishes in about 15
+     answers (~50s); one every 6 seconds is about 14 answers (~85s); slower
+     than that is still ~13–14 answers, just a longer race. */
+  const TAU = 8;
+  const BOOST = 0.35;
+  const SURGE_RATE = 1.4;    // how fast a boost reaches the wheels, per second
+  const DIST = 38;
+  const LAUNCH = 0.3;
+  const MPH = 200;
+
+  const CIRCUITS = {
+    1:{ name:"Bronze",   emoji:"\u{1F949}", color:"#D89458", kid:"adding up to 10",
+        grown:"adding within 10", ex:"3 + 4",
+        tip:"Add them up as fast as you can!" },
+    2:{ name:"Silver",   emoji:"\u{1F948}", color:"#D3DAE1", kid:"big number plus a small one",
+        grown:"a teen number plus a single digit, to 20", ex:"13 + 4",
+        tip:"Trick: 13 + 4 — add the 3 and 4, then keep the 10." },
+    3:{ name:"Gold",     emoji:"\u{1F947}", color:"#F2B92C", kid:"taking away",
+        grown:"subtracting single digits", ex:"9 \u2212 4",
+        tip:"Trick: 9 \u2212 4 means 4 and what make 9?" },
+    4:{ name:"Platinum", emoji:"\u{1F48E}", color:"#A8E6E3", kid:"big number take away a small one",
+        grown:"a teen number minus a single digit", ex:"15 \u2212 8",
+        tip:"Trick: not enough ones? Jump back to 10 first." }
+  };
+
+  /* Seconds Blue Bolt takes to finish, slowest first. A brisk, sure kid
+     finishes in about 50; one taking six seconds an answer, about 85. */
+  const RIVAL = "Blue Bolt";
+  const RIVALS = [150, 120, 95, 75, 60, 50];
+  /* The steady answer pace that ties Blue Bolt at each of those times, from
+     simulating the car below. It's what the panel tells the parent. */
+  const RIVAL_PACE = [11, 8.5, 6.5, 5, 4, 3];
+  const WINDOW = 30;       // "lately", for the panel's numbers
+
+  let S = null;            // everything that persists
+  let RC = null;           // the race in progress — always the same object as S.race
+  let phase = "pre";       // pre | count | race | done
+  let entry = "";
+  let locked = false;
+  let sessionStart = Date.now();
+  let timers = [];
+
+  const persist = Kit.debounce(() => store.set(KEY, S), 350);
+
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = false;        // this game never talks
+  }
+
+  function freshState(){
+    return {
+      circuit:1,               // the one he picked last
+      racesBy:{ 1:0, 2:0, 3:0, 4:0 },
+      rival:{ 1:1, 2:1, 3:1, 4:1 }, rivalMode:"auto",
+      hist:[],                 // {c, clean, t} per question, all circuits
+      facts:{},                // key -> {n, right, wrong, avg, miss}
+      races:0, wins:0, best:{},
+      answers:0, firstTry:0,
+      sound:true,
+      seconds:0, sessions:0,
+      race:null                // so a reload lands back in the same race
+    };
+  }
+
+  function rivalLevel(){
+    return S.rivalMode === "auto" ? S.rival[S.circuit] : +S.rivalMode;
+  }
+
+  /* ---------------- the facts on each circuit ---------------------------- */
+  /* Addition keys are written biggest-first, so 3 + 5 and 5 + 3 are one fact:
+     to a kid learning them they are. Subtraction keys are as asked. */
+  const FACTS = {};
+  function fact(key, a, b, op, w, flip){ return { key, a, b, op, w, flip }; }
+  function buildFacts(){
+    const f1 = [], f2 = [], f3 = [], f4 = [];
+    for (let a = 1; a <= 10; a++) for (let b = 0; b <= a && a + b <= 10; b++)
+      f1.push(fact(a + "+" + b, a, b, "+", b === 0 ? 0.25 : 1, 0.5));
+    for (let t = 10; t <= 19; t++) for (let s = 1; s <= 9 && t + s <= 20; s++)
+      f2.push(fact(t + "+" + s, t, s, "+", 1, 0.3));
+    for (let a = 2; a <= 9; a++) for (let b = 1; b <= a; b++)
+      f3.push(fact(a + "-" + b, a, b, "-", b === a ? 0.4 : 1, 0));
+    for (let a = 10; a <= 20; a++) for (let b = 1; b <= 9; b++)
+      f4.push(fact(a + "-" + b, a, b, "-", 1, 0));
+    FACTS[1] = f1; FACTS[2] = f2; FACTS[3] = f3; FACTS[4] = f4;
+  }
+  const show = key => key.replace("+", " + ").replace("-", " − ");
+
+  /* Missed and slow facts come up more; ones he has down cold, a bit less. */
+  function makeQuestion(){
+    const list = FACTS[RC.circuit];
+    const recent = RC.recent || [];
+    const ws = list.map(f => {
+      if (recent.indexOf(f.key) >= 0) return 0;
+      const st = S.facts[f.key];
+      let w = f.w;
+      if (!st) w *= 1.4;
+      else {
+        w *= 1 + st.miss * 1.5;
+        if (st.avg > 4) w *= 1 + Math.min(2, (st.avg - 4) / 2);
+        else if (st.avg && st.avg < 2.5 && !st.miss && st.n >= 3) w *= 0.6;
+      }
+      return w;
+    });
+    let r = Math.random() * ws.reduce((x, y) => x + y, 0), i = 0;
+    while (i < ws.length - 1 && (r -= ws[i]) > 0) i++;
+    const f = list[i];
+    RC.recent = recent.concat(f.key).slice(-4);
+    const text = f.op === "+"
+      ? (Math.random() < f.flip ? f.b + " + " + f.a : f.a + " + " + f.b)
+      : f.a + " − " + f.b;
+    return { key:f.key, text, ans: f.op === "+" ? f.a + f.b : f.a - f.b };
+  }
+
+  /* ---------------- sound ------------------------------------------------- */
+  const blip  = v => tone(480 + v * 22, 0.04, 0, "square", 0.05);
+  const vroom = () => [196,262,392,587].forEach((f,i) => tone(f, 0.13, i*0.045, "sawtooth", 0.045));
+  const nope  = () => { tone(190,0.14,0,"square",0.08); tone(150,0.18,0.11,"square",0.08); };
+  const fanfare = () => [392,523,659,784,1046].forEach((f,i) => tone(f, 0.3, i*0.12, "triangle", 0.15));
+
+  /* ---------------- art ---------------------------------------------------- */
+  function wheel(cx, cy, r){
+    return '<g class="wh" data-cx="' + cx + '" data-cy="' + cy + '">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#15181D"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.5) + '" fill="#A3ADB9"/>' +
+      '<path d="M' + (cx - r*.45) + ' ' + cy + 'H' + (cx + r*.45) + 'M' + cx + ' ' + (cy - r*.45) +
+        'V' + (cy + r*.45) + '" stroke="#4E5866" stroke-width="2.5"/>' +
+      "</g>";
+  }
+  function carSVG(body, trim){
+    return '<svg viewBox="-24 0 144 48" aria-hidden="true">' +
+      '<path class="flame" d="M5 25 L-22 21 L-9 28 L-23 34 L5 32 Z" fill="#FFC247" stroke="#E8541E" stroke-width="2" stroke-linejoin="round" style="transform-origin:5px 28px"/>' +
+      '<path d="M12 23 L15 7" stroke="#1D232E" stroke-width="3"/>' +
+      '<rect x="2" y="2" width="24" height="6" rx="2" fill="' + trim + '" stroke="#1D232E" stroke-width="2"/>' +
+      '<path d="M4 36 L6 22 L40 20 L52 12 L67 12 L73 20 L104 27 L119 31 L119 37 L4 37 Z" fill="' + body + '" stroke="#1D232E" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '<path d="M40 30 H112" stroke="' + trim + '" stroke-width="3" stroke-linecap="round"/>' +
+      '<circle cx="60" cy="13" r="6.5" fill="' + trim + '" stroke="#1D232E" stroke-width="2"/>' +
+      '<path d="M61 10.5 h5.5 v4 h-5.5z" fill="#1D232E"/>' +
+      wheel(22, 33, 14) + wheel(106, 39, 8.5) +
+      "</svg>";
+  }
+  function buildCars(){
+    $("#me").innerHTML = '<div class="lines"></div>' + carSVG("#E8541E", "#F2B92C") + '<span class="who">You</span>';
+    $("#rival").innerHTML = carSVG("#2D6FD6", "#9FE3E0") + '<span class="who">' + RIVAL + "</span>";
+  }
+
+  /* The speedometer: a 240° sweep, 0 at bottom-left, 200 at bottom-right. */
+  function pt(r, f){
+    const a = (-120 + 240 * f) * Math.PI / 180;
+    return [(100 + r * Math.sin(a)).toFixed(1), (100 - r * Math.cos(a)).toFixed(1)];
+  }
+  function arc(r, f0, f1, color, w){
+    const p0 = pt(r, f0), p1 = pt(r, f1);
+    return '<path d="M' + p0 + 'A' + r + ' ' + r + ' 0 ' + (240 * (f1 - f0) > 180 ? 1 : 0) + ' 1 ' + p1 +
+      '" fill="none" stroke="' + color + '" stroke-width="' + w + '"/>';
+  }
+  function buildGauge(){
+    let s = '<svg id="gauge" viewBox="0 0 200 200" role="img" aria-label="Speedometer">' +
+      '<circle class="face" cx="100" cy="100" r="95" fill="#12161C" stroke="#46505E" stroke-width="5"/>' +
+      arc(80, 0, 0.6, "#2FA84F", 9) + arc(80, 0.6, 0.85, "#F2B92C", 9) + arc(80, 0.85, 1, "#E8541E", 9);
+    for (let i = 0; i <= 20; i++){
+      const major = i % 4 === 0, a = pt(73, i / 20), b = pt(major ? 61 : 66, i / 20);
+      s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] +
+        '" stroke="#F3F5F8" stroke-width="' + (major ? 3 : 1.5) + '"/>';
+      if (major){
+        const l = pt(48, i / 20);
+        s += '<text x="' + l[0] + '" y="' + (+l[1] + 4.5) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#C9D1DB" font-family="inherit">' + (i * 10) + "</text>";
+      }
+    }
+    s += '<text id="mph" x="100" y="148" text-anchor="middle" font-size="26" font-weight="800" fill="#FFFFFF" font-family="inherit">0</text>' +
+      '<text x="100" y="164" text-anchor="middle" font-size="11" font-weight="700" fill="#8E99A8" font-family="inherit">MPH</text>' +
+      '<g id="needle" transform="rotate(-120 100 100)">' +
+        '<path d="M96.5 104 L103.5 104 L100.8 28 L99.2 28 Z" fill="#FF6A3D"/>' +
+      "</g>" +
+      '<circle cx="100" cy="100" r="8" fill="#46505E" stroke="#F3F5F8" stroke-width="2"/>' +
+      "</svg>";
+    $("#gaugeBox").innerHTML = s;
+  }
+
+  /* ---------------- drawing, every frame ---------------------------------- */
+  let trackW = 0, carW = 0;
+  let meSpin = 0, rivalSpin = 0, scroll = 0, shownMph = -1;
+  const FAR = 0.84;     // the far-lane car is drawn smaller
+
+  function measure(){
+    trackW = $("#track").clientWidth;
+    carW = $("#me").offsetWidth;
+    const start = startX(), fin = finishX();
+    $("#startLine").style.left = (start - 2) + "px";
+    $("#finishLine").style.left = fin + "px";
+    $("#flag").style.left = fin + "px";
+  }
+  const startX = () => trackW * 0.03 + carW;
+  const finishX = () => trackW * 0.94;
+
+  /* Blue Bolt pulls away over two seconds, then holds a steady pace that puts
+     him over the line at exactly his time. */
+  function rivalPos(t, T){
+    if (t <= 0) return 0;
+    return Math.min(1, (t < 2 ? t * t / 4 : t - 1) / (T - 1));
+  }
+
+  function spin(el, deg){
+    el.querySelectorAll(".wh").forEach(g =>
+      g.setAttribute("transform", "rotate(" + deg.toFixed(1) + " " + g.dataset.cx + " " + g.dataset.cy + ")"));
+  }
+
+  function draw(dt){
+    const v = RC ? RC.v : 0, pos = RC ? RC.pos : 0, t = RC ? RC.t : 0;
+    const T = RC ? RC.rivalTime : 100;
+    const rp = rivalPos(t, T);
+    const running = phase === "race" && !Grownups.isOpen();
+    const rv = running && rp < 1 ? (rivalPos(t + 0.05, T) - rp) / 0.05 * DIST : 0;
+
+    const start = startX(), span = finishX() - start;
+    $("#me").style.transform = "translateX(" + (start - carW + pos * span).toFixed(1) + "px)";
+    $("#rival").style.transform = "translateX(" + (start - carW * FAR + rp * span).toFixed(1) + "px) scale(" + FAR + ")";
+
+    if (running){
+      meSpin = (meSpin + v * dt * 1100) % 360;
+      rivalSpin = (rivalSpin + rv * dt * 1100) % 360;
+      scroll += v * dt * trackW * 0.35;
+      spin($("#me"), meSpin);
+      spin($("#rival"), rivalSpin);
+      const o = -scroll;
+      $("#stands").style.backgroundPosition =
+        o + "px 3px," + (o + 11) + "px 9px," + (o + 5) + "px 2px," + (o + 17) + "px 7px";
+    }
+    $("#me .lines").style.opacity = Math.max(0, (v - 0.45) / 0.55).toFixed(2);
+
+    $("#needle").setAttribute("transform", "rotate(" + (-120 + 240 * v).toFixed(1) + " 100 100)");
+    const mph = Math.round(v * MPH);
+    if (mph !== shownMph){ shownMph = mph; $("#mph").textContent = mph; }
+    $("#clock").textContent = t.toFixed(1) + "s";
+  }
+
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (phase === "race" && RC && !Grownups.isOpen()){
+      RC.t += dt;
+      const take = Math.min(RC.surge, SURGE_RATE * dt);
+      RC.surge -= take;
+      RC.v = Math.min(1, RC.v * Math.exp(-dt / TAU) + take);
+      if (RC.v >= 1) RC.surge = 0;                 // past the top is lost
+      RC.pos = Math.min(1, RC.pos + RC.v * dt / DIST);
+      if (!RC.rivalDone && RC.t >= RC.rivalTime){
+        RC.rivalDone = true;
+        if (RC.pos < 1) feedback(RIVAL + " is over the line. Keep going — finish your race!", "");
+      }
+      if (RC.pos >= 1) finishRace();
+    }
+    draw(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------------- the race --------------------------------------------- */
+  function newRace(){
+    const lvl = rivalLevel();
+    return { circuit:S.circuit, pos:0, v:0, surge:0, t:0,
+             rivalLevel:lvl, rivalTime:RIVALS[lvl], rivalDone:false,
+             q:null, tries:0, qStart:0, recent:[], answered:0, clean:0 };
+  }
+
+  function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+  function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+  /* Between races. A race left half-run (a reload, say) waits behind a Keep
+     racing button; otherwise he picks a circuit, and picking starts the lights. */
+  function enterPre(){
+    clearTimers();
+    phase = "pre"; entry = ""; locked = false;
+    lights(-1); setPad(false);
+    if (S.race && S.race.t > 0){
+      RC = S.race;
+      S.circuit = RC.circuit;
+      renderChip();
+      $("#problem").innerHTML = '<button class="btn" id="startBtn">Keep racing</button>';
+      $("#startBtn").onclick = () => { Kit.audio(); countdown(); };
+      feedback("Your race is waiting right where you left it.", "");
+    } else {
+      S.race = null; RC = null;
+      renderChip();
+      $("#problem").innerHTML = "";
+      feedback("Pick a circuit!", "");
+      showPicker();
+    }
+    persist();
+  }
+
+  function showPicker(){
+    const o = $("#overlay");
+    o.innerHTML = '<div class="sheet"><h2>Pick your circuit</h2><div class="picks">' +
+      Object.keys(CIRCUITS).map(k => {
+        const C = CIRCUITS[k];
+        return '<button class="pick" data-c="' + k + '" style="--medal:' + C.color + '">' +
+          '<span class="pe">' + C.emoji + "</span><b>" + C.name + '</b><span class="px">' + C.ex + "</span>" +
+          "<small>" + (S.best[k] ? "Best: " + Math.round(S.best[k]) + " seconds" : "") + "</small></button>";
+      }).join("") + "</div></div>";
+    /* Leave the top bar uncovered so the back link and Grown-ups still work. */
+    o.style.top = $("#bar").offsetHeight + "px";
+    o.classList.add("open");
+    o.setAttribute("aria-hidden", "false");
+    o.querySelectorAll(".pick").forEach(b => b.onclick = () => {
+      Kit.audio();
+      closeOverlay();
+      startCircuit(+b.dataset.c);
+    });
+    const last = o.querySelector('.pick[data-c="' + S.circuit + '"]');
+    if (last) last.focus();
+  }
+
+  function closeOverlay(){
+    const o = $("#overlay");
+    o.classList.remove("open"); o.setAttribute("aria-hidden", "true");
+    o.innerHTML = ""; o.style.top = "";
+  }
+
+  function startCircuit(c){
+    clearTimers();
+    S.circuit = c;
+    S.race = newRace(); RC = S.race;
+    renderChip();
+    phase = "pre";
+    countdown();
+  }
+
+  function lights(n){
+    const el = $("#lights");
+    el.classList.toggle("on", n >= 0);
+    el.querySelectorAll("b").forEach((b, i) => {
+      b.className = n === 3 ? (i === 3 ? "green" : "") : (i <= n && i < 3 ? "amber" : "");
+    });
+  }
+
+  function countdown(){
+    if (phase !== "pre" || !RC) return;
+    phase = "count";
+    $("#problem").innerHTML = '<span class="ready">Ready…</span>';
+    feedback(CIRCUITS[RC.circuit].tip, "");
+    [0,1,2].forEach(i => later(() => { lights(i); tone(440, 0.16, 0, "square", 0.08); }, 300 + i * 650));
+    later(() => {
+      lights(3); tone(880, 0.45, 0, "square", 0.1);
+      phase = "race"; setPad(true);
+      if (RC.t === 0) RC.v = LAUNCH;
+      if (RC.q) showQuestion(); else nextQuestion();
+      later(() => lights(-1), 1300);
+    }, 300 + 3 * 650);
+  }
+
+  function nextQuestion(){
+    RC.q = makeQuestion();
+    RC.tries = 0;
+    showQuestion();
+  }
+  function showQuestion(){
+    entry = "";
+    locked = false;
+    RC.qStart = RC.t;             // race time, so a pause never counts against him
+    $("#problem").innerHTML = '<span class="q">' + RC.q.text + " =</span>" + '<span id="slot">?</span>';
+    persist();
+  }
+
+  function renderSlot(state){
+    const el = $("#slot");
+    if (!el) return;
+    el.textContent = entry === "" ? "?" : entry;
+    el.className = state || "";
+  }
+  function feedback(msg, kind){
+    const f = $("#feedback");
+    f.textContent = msg || "";
+    f.className = kind || "";
+  }
+  function setPad(on){ document.querySelectorAll("#pad .key").forEach(k => { k.disabled = !on; }); }
+
+  /* ---------------- answering --------------------------------------------
+     Judged the moment it can be: the right answer goes straight through (that
+     instant boost is the fun), and so does a wrong one once it's as long as the
+     answer. A short wrong one — 9 when it's 12 — waits for Go. */
+  function press(k){
+    if (phase !== "race" || locked) return;
+    if (k === "back"){ entry = entry.slice(0, -1); renderSlot(); return; }
+    if (k === "go"){ if (entry !== "") judge(); return; }
+    if (entry.length >= 2) return;
+    entry += k; blip(+k); renderSlot();
+    const ans = String(RC.q.ans);
+    if (entry === ans || entry.length >= ans.length) judge();
+  }
+
+  function judge(){
+    if (locked) return;
+    locked = true;
+    const q = RC.q;
+
+    if (+entry === q.ans){
+      const clean = RC.tries === 0;
+      RC.surge += clean ? BOOST : BOOST / 2;
+      RC.answered++; if (clean) RC.clean++;
+      record(q, clean, RC.t - RC.qStart);
+      vroom(); boostFx();
+      renderSlot("good");
+      feedback(clean ? pick(["Boost!", "Vroom!", "Zoom!", "Yes!", "Nice!"]) : "Got it — boost!", "good");
+      RC.q = null; persist();
+      later(() => { if (phase === "race") nextQuestion(); }, 260);
+      return;
+    }
+
+    RC.tries++;
+    nope();
+    renderSlot("bad");
+    if (RC.tries >= 2){
+      RC.answered++;
+      record(q, false, null);
+      feedback("It's " + q.ans + ". Here comes the next one.", "miss");
+      entry = String(q.ans);
+      later(() => renderSlot("reveal"), 340);
+      RC.q = null; persist();
+      later(() => { if (phase === "race") nextQuestion(); }, 1500);
+      return;
+    }
+    feedback("Not quite. Try again!", "miss");
+    later(() => { if (phase !== "race") return; entry = ""; renderSlot(); locked = false; }, 450);
+  }
+
+  let boostTimer = 0;
+  function boostFx(){
+    $("#me").classList.add("boost");
+    $("#gauge").classList.add("boost");
+    clearTimeout(boostTimer);
+    boostTimer = setTimeout(() => {
+      $("#me").classList.remove("boost");
+      $("#gauge").classList.remove("boost");
+    }, 650);
+  }
+
+  function record(q, clean, t){
+    const f = S.facts[q.key] || (S.facts[q.key] = { n:0, right:0, wrong:0, avg:0, miss:0 });
+    f.n++;
+    if (clean){
+      f.right++;
+      f.avg = f.avg ? +(f.avg * 0.6 + t * 0.4).toFixed(2) : +t.toFixed(2);
+      f.miss = Math.max(0, f.miss - 1);
+    } else {
+      f.wrong++;
+      f.miss = Math.min(3, f.miss + 1);
+    }
+    S.answers++; if (clean) S.firstTry++;
+    S.hist.push({ c:RC.circuit, clean:clean, t: clean ? +t.toFixed(2) : null });
+    if (S.hist.length > 160) S.hist = S.hist.slice(-160);
+  }
+
+  /* ---------------- the finish line --------------------------------------- */
+  function finishRace(){
+    if (phase !== "race") return;
+    phase = "done"; locked = true; clearTimers(); setPad(false);
+    const c = RC.circuit, t = RC.t, won = t < RC.rivalTime;
+    const gap = Math.round(Math.abs(RC.rivalTime - t));
+    S.races++; if (won) S.wins++;
+    S.racesBy[c] = (S.racesBy[c] || 0) + 1;
+    const tt = +t.toFixed(1);
+    const newBest = S.best[c] && tt < S.best[c];
+    if (!S.best[c] || tt < S.best[c]) S.best[c] = tt;
+
+    /* Blue Bolt: a win speeds him up; losing by a lot slows him down. */
+    let rivalNote = "";
+    if (S.rivalMode === "auto"){
+      const i = S.rival[c];
+      if (won && i < RIVALS.length - 1){ S.rival[c] = i + 1; rivalNote = RIVAL + " is going to drive faster next time!"; }
+      else if (!won && t >= RC.rivalTime * 1.35 && i > 0){ S.rival[c] = i - 1; rivalNote = RIVAL + " will take it a little easier next time."; }
+    }
+
+    const ran = RC.answered, clean = RC.clean;
+    S.race = null;
+    store.set(KEY, S);
+
+    if (won) fanfare(); else [523,659,784].forEach((f,i) => tone(f, 0.24, i*0.1, "triangle", 0.13));
+    feedback("", "");
+    $("#problem").innerHTML = "";
+
+    const secs = Math.round(t);
+    sheet(won ? "\u{1F3C6}" : "\u{1F3C1}",
+      won ? "You won!" : "You finished!",
+      '<div class="time">' + secs + " seconds</div>" +
+      "<p>" + (won
+        ? (gap <= 1 ? "Just barely ahead of " + RIVAL + "!" : RIVAL + " was " + gap + " seconds behind you.")
+        : RIVAL + " got there first this time" + (gap <= 1 ? " — by a nose!" : ", by " + gap + " seconds.")) + "</p>" +
+      "<p>" + clean + " of " + ran + " right the first time." + "</p>" +
+      (newBest ? "<p><b>Your fastest " + CIRCUITS[c].name + " race yet!</b></p>" : "") +
+      (rivalNote ? "<p>" + rivalNote + "</p>" : ""),
+      [{ label:"Race again", run:() => startCircuit(c) },
+       { label:"Pick a circuit", quiet:true, run:enterPre }]);
+  }
+
+  function median(a){
+    if (!a.length) return 0;
+    const s = a.slice().sort((x, y) => x - y), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  function sheet(emoji, head, body, buttons){
+    const o = $("#overlay");
+    o.innerHTML =
+      '<div class="sheet"><div class="big">' + emoji + "</div><h2>" + head + "</h2>" + body +
+      '<div class="actions">' + buttons.map((b, i) =>
+        '<button class="btn' + (b.quiet ? " quiet" : "") + '" data-i="' + i + '">' + b.label + "</button>").join("") +
+      "</div></div>";
+    o.classList.add("open");
+    o.setAttribute("aria-hidden", "false");
+    o.querySelectorAll(".actions .btn").forEach(el => el.onclick = () => {
+      closeOverlay();
+      buttons[+el.dataset.i].run();
+    });
+    o.querySelector(".actions .btn").focus();
+  }
+
+  function renderChip(){
+    const C = CIRCUITS[S.circuit], el = $("#stageChip");
+    el.textContent = C.emoji + " " + C.name + " Circuit";
+    el.style.background = C.color;
+  }
+
+  /* ---------------- grown-ups --------------------------------------------- */
+  const ABOUT = {
+    1:"These are the facts everything else is built on. The goal is for 6 + 3 to be something he " +
+      "<em>knows</em>, not something he counts. Counting on fingers is fine on the way there — it just " +
+      "shows up here as a slow answer. Watch the pairs that make ten (7 + 3, 6 + 4): the later circuits lean on them.",
+    2:"A teen number plus a single digit. The quick way is to see 13 + 4 as ten, plus 3 + 4 — and he " +
+      "already knows 3 + 4 from Bronze. If he's counting up from 13 one at a time, that's the habit to nudge. " +
+      "The ones that land exactly on 20 (15 + 5, 12 + 8) are usually the last to get quick.",
+    3:"Subtraction under 10. The fast route isn't counting backwards, it's thinking of the addition: " +
+      "9 − 4 is “4 and what make 9?” If his slow facts here are the same pairs that were slow on Bronze, that's why.",
+    4:"A teen number minus a single digit. The sticking point is crossing ten: 15 − 8 is much harder than " +
+      "18 − 5, because there aren't enough ones to take away. The usual route is back to ten, then the rest " +
+      "(15 − 5 is 10, 3 more is 7). Expect the crossing ones to stay slow longest."
+  };
+
+  function slowFacts(c){
+    const seen = FACTS[c].map(f => ({ f, st:S.facts[f.key] })).filter(x => x.st);
+    if (!seen.length) return "<p>He hasn't raced this circuit yet.</p>";
+    const slow = seen
+      .map(x => ({ key:x.f.key, st:x.st, score:x.st.miss * 3 + Math.max(0, (x.st.avg || 0) - 3) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score).slice(0, 8);
+    if (!slow.length) return "<p>Nothing stands out — every fact he's seen here comes back quickly.</p>";
+    return "<p>" + slow.map(x =>
+      "<b>" + show(x.key) + "</b> <span class=\"gu-muted\">(" +
+      (x.st.miss ? "missed lately" : x.st.avg.toFixed(1) + " s") + ")</span>").join(", ") + "</p>" +
+      '<p class="gu-muted">These come up more often until they speed up. ' +
+      seen.length + " of the " + FACTS[c].length + " facts on this circuit have come up so far.</p>";
+  }
+
+  const secs = n => (Math.round(n * 10) / 10) + " s";
+
+  /* One row per circuit: how he's doing there, and the car he's up against. */
+  function circuitTable(){
+    return '<table class="rt"><tr><th>Circuit</th><th>Races</th><th>Right first try</th>' +
+      "<th>Typical answer</th><th>Best</th></tr>" +
+      Object.keys(CIRCUITS).map(k => {
+        const recent = S.hist.filter(h => h.c === +k).slice(-WINDOW);
+        const clean = recent.filter(h => h.clean);
+        return '<tr' + (+k === S.circuit ? ' class="now"' : "") + "><td>" + CIRCUITS[k].emoji + " " + CIRCUITS[k].name +
+          "</td><td>" + (S.racesBy[k] || 0) +
+          "</td><td>" + (recent.length ? Math.round(clean.length / recent.length * 100) + "%" : "—") +
+          "</td><td>" + (clean.length ? secs(median(clean.map(h => h.t))) : "—") +
+          "</td><td>" + (S.best[k] ? Math.round(S.best[k]) + " s" : "—") + "</td></tr>";
+      }).join("") + "</table>";
+  }
+
+  function rivalTable(){
+    return '<table class="rt"><tr><th>Circuit</th><th>Finishes in</th><th>Speed</th>' +
+      "<th>Answer needed</th></tr>" +
+      Object.keys(CIRCUITS).map(k => {
+        const i = S.rivalMode === "auto" ? S.rival[k] : +S.rivalMode;
+        return '<tr' + (+k === S.circuit ? ' class="now"' : "") + "><td>" + CIRCUITS[k].emoji + " " + CIRCUITS[k].name +
+          "</td><td>" + RIVALS[i] + " s</td><td>" + (i + 1) + " of " + RIVALS.length +
+          "</td><td>every " + RIVAL_PACE[i] + " s</td></tr>";
+      }).join("") + "</table>";
+  }
+
+  function panelConfig(){
+    const c = S.circuit, C = CIRCUITS[c];
+    const recent = S.hist.filter(h => h.c === c).slice(-WINDOW);
+    const clean = recent.filter(h => h.clean);
+    const med = clean.length ? secs(median(clean.map(h => h.t))) : "—";
+    const mins = Math.round((S.seconds + (Date.now() - sessionStart) / 1000) / 60);
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+    const lvl = rivalLevel();
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary racing — nothing here is a test. " +
+             "He picks the circuit himself before each race; the bold row is the one he raced last.",
+      stats: [
+        { value:S.races,                 label:"Races finished" },
+        { value:S.wins,                  label:"Races won" },
+        { value:med,                     label:"Typical answer, " + C.name },
+        { value:RIVALS[lvl] + " s",      label:RIVAL + "’s time, " + C.name }
+      ],
+      sections: [
+        { title:"Each circuit", html:circuitTable() +
+            '<p class="gu-muted">“Right first try” and “typical answer” cover his last ' + WINDOW +
+            " answers on that circuit. " + mins + " minutes played in all.</p>" },
+        { title:"How fast " + RIVAL + " is", html:rivalTable() +
+            "<p>" + RIVAL + " drives at a steady pace. “Answer needed” is how often he needs a right answer, " +
+            "on average, to get there first. A quick, sure racer — a right answer about every " +
+            "3 seconds — finishes in about 50 seconds; one taking 6 seconds an answer, about 85. " +
+            (S.rivalMode === "auto"
+              ? "On Auto, each circuit keeps its own speed: every win makes it a little faster next race on " +
+                "that circuit, and losing by a lot slows it down, so he should win some and lose some."
+              : "It's pinned to speed " + (lvl + 1) + " on every circuit right now; set it back to Auto to " +
+                "let it follow him.") + "</p>" },
+        { title:"What the answer time means",
+          html:"<p>Speed is the whole point of this game. Under about 3 seconds usually means he " +
+               "<em>knows</em> the fact — it comes straight from memory. 3 to 6 seconds usually means he's " +
+               "working it out, counting on from the bigger number or using a fact he does know. Much " +
+               "slower is often counting from one. All three get the right answer; only the first leaves " +
+               "his attention free for the harder math that's coming.</p>" +
+               '<p class="gu-muted">A wrong answer costs him nothing but time — the car just misses its boost. ' +
+               "After two tries the game tells him the answer and moves on.</p>" },
+        { title:C.name + " circuit — " + C.grown, html:"<p>" + ABOUT[c] + "</p>" },
+        { title:"Facts that are still slow on " + C.name, html:slowFacts(c) }
+      ],
+      settings: [
+        { label:RIVAL + "’s speed", hint:"Seconds it takes to finish. Auto keeps the race close.",
+          value:S.rivalMode,
+          options:[{value:"auto",label:"Auto"}].concat(
+            RIVALS.map((t, i) => ({ value:String(i), label:t + " s" }))),
+          onPick(v){ S.rivalMode = v; persist(); } },
+        { label:"Sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); persist(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, ' +
+        "so these numbers cover today only.</p>",
+      closeLabel: "Back to the race",
+      /* A race underway keeps the pace it started with; a new speed applies
+         from the next race. */
+      onClose(){},
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          enterPre();
+        }
+      }
+    };
+  }
+
+  /* ---------------- wiring ------------------------------------------------ */
+  function buildPad(){
+    const keys = ["1","2","3","4","5","6","7","8","9","back","0","go"];
+    $("#pad").innerHTML = keys.map(k =>
+      k === "back" ? '<button class="key util" data-k="back" aria-label="Delete">&#9003;</button>' :
+      k === "go"   ? '<button class="key go" data-k="go">Go</button>' :
+                     '<button class="key" data-k="' + k + '">' + k + "</button>").join("");
+    $("#pad").addEventListener("click", e => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      Kit.audio();
+      press(b.dataset.k);
+    });
+  }
+
+  $("#grownups").addEventListener("click", () => Grownups.open(panelConfig));
+
+  document.addEventListener("keydown", e => {
+    if (!S || $("#overlay").classList.contains("open") || Grownups.isOpen()) return;
+    Kit.audio();
+    if (phase === "pre"){
+      if (e.key === "Enter" || e.key === " "){ e.preventDefault(); countdown(); }
+      return;
+    }
+    if (e.key >= "0" && e.key <= "9") press(e.key);
+    else if (e.key === "Backspace"){ e.preventDefault(); press("back"); }
+    else if (e.key === "Enter"){ e.preventDefault(); press("go"); }
+  });
+
+  window.addEventListener("resize", measure);
+  setInterval(() => { if (S){ S.seconds += 15; persist(); } }, 15000);
+  window.addEventListener("beforeunload", () => { if (S) store.set(KEY, S); });
+
+  /* ---------------- boot -------------------------------------------------- */
+  (async function boot(){
+    const saved = await store.get(KEY);
+    S = saved && saved.hist ? Object.assign(freshState(), saved) : freshState();
+    S.rival = Object.assign(freshState().rival, S.rival);
+    S.racesBy = Object.assign(freshState().racesBy, S.racesBy);
+    delete S.circuitMode;
+    applySettings();
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+
+    buildFacts();
+    buildGauge();
+    buildCars();
+    buildPad();
+    measure();
+
+    if (S.race && (S.race.pos >= 1 || !FACTS[S.race.circuit])) S.race = null;
+    enterPre();
+    requestAnimationFrame(frame);
+  })();
+
+})();
+</script>
+</body>
+</html>

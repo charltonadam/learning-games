@@ -172,7 +172,7 @@ code change must never wipe a kid's progress. Bump the key's suffix only when
 the shape changes in a way the merge genuinely can't absorb.
 
 Keys in use: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`,
-`sillystories:v1`, `robotfactory:v1`.
+`sillystories:v1`, `robotfactory:v1`, `mathracers:v1`.
 
 ### Screen shell
 
