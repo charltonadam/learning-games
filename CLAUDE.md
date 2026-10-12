@@ -69,7 +69,7 @@ memory so a game still plays through a session when storage is blocked; `Kit.sto
 whether it's really saving, and the panel tells the parent when it isn't.
 
 One key per game: `deepdive-progress`, `lettertrain:v1`, `coinshop:v1`, `sillystories:v1`,
-`robotfactory:v1`, `mathracers:v1`.
+`robotfactory:v1`, `mathracers:v1`, `wordtrain:v1`.
 Bump the suffix or migrate defensively (`Object.assign(freshState(), saved)`, backfilling new fields) — kids'
 progress should survive a code change.
 
@@ -100,6 +100,17 @@ but the contract is the same — no menus of levels, no score to chase, and it c
   to choose. Promote on 7-of-8 clean, demote on ≤2-of-6, with a separate number-size rung on
   5-of-6 / 2-of-6. Per-fact timing keys `4×5` and `5×4` together, since to a kid learning them
   they are one fact — the same grid turned sideways.
+
+- **word-train** — letter-train's yard and train, but for reading short-vowel words. Three
+  kinds of question, mixed: hear a word and find it, read a word and find its picture, see a
+  picture and find its word. Only the hearing kind ever says the answer. The six stages are
+  how close the other cars are to the answer: different first letters → same start (cat/cap)
+  → only the vowel changes (hat/hot/hut) → one letter anywhere, then the same two ends of
+  that for four-letter words. Each stage is an ordered list of distractor rules in `RULES`,
+  falling back when a word lacks close neighbours (picture cars need a picture too, so they
+  fall back most). Promote on 7-of-8 clean, demote on ≤2-of-6. A wrong pick is filed by where
+  it parted from the answer (`misses.start/end/middle`), which is what the panel reads to
+  tell the parent whether he's guessing after the first letter.
 
 - **math-racers** — the one deliberate exception to "no level select": he picks a circuit
   before each race (bronze: adding within 10, silver: teen + one, gold: subtracting under 10,

@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Word Train</title>
+<meta name="description" content="Short-vowel reading: hear a word or see a picture, and find the car that matches.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128643;</text></svg>">
+<script src="../../shared/storage.js"></script>
+<script src="../../shared/kit.js"></script>
+<script src="../../shared/grownups.js"></script>
+<link rel="stylesheet" href="../../shared/kit.css">
+<style>
+  /* Andika is SIL's typeface for beginning readers: a single-storey "a" and
+     "g", the shapes he's taught to write. Falls back cleanly off-line. */
+  @import url('https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap');
+
+  :root{
+    --sky:#F2B880;
+    --sky-deep:#D98F5C;
+    --hill:#7FB069;
+    --hill-deep:#5C8F4A;
+    --signal:#D6402E;
+    --engine:#2F5D8C;
+    --ink:#2B1F33;
+    --cream:#FFF7EA;
+    --rail:#5A4033;
+    --gold:#F2C14E;
+    --font:'Andika','Avenir Next','Trebuchet MS',Verdana,sans-serif;
+
+    /* the shared grown-ups panel, in this game's colours */
+    --kit-font:var(--font);
+    --kit-ink:var(--ink);
+    --kit-muted:rgba(43,31,51,.62);
+    --kit-paper:var(--cream);
+    --kit-line:var(--ink);
+    --kit-tile:rgba(43,31,51,.06);
+    --kit-accent:var(--engine);
+    --kit-accent-ink:var(--cream);
+    --kit-danger:var(--signal);
+    --kit-danger-ink:var(--cream);
+    --kit-scrim:rgba(43,31,51,.58);
+    --kit-focus:var(--gold);
+    --kit-radius:18px;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--font);color:var(--ink);background:var(--hill-deep);
+    overflow:hidden;touch-action:manipulation;
+  }
+  #app{
+    position:relative;height:100dvh;width:100%;
+    display:flex;flex-direction:column;
+    background:linear-gradient(var(--sky) 0%, #FADDB8 60%, var(--hill) 60%, var(--hill-deep) 100%);
+  }
+
+  /* grownups.js emits `btn`, `btn quiet ghost` and `btn danger`. */
+  .btn{
+    font-family:var(--font);font-size:1.05rem;font-weight:700;
+    color:var(--cream);background:var(--engine);
+    border:none;border-bottom:4px solid rgba(0,0,0,.28);
+    border-radius:14px;padding:.75em 1.4em;cursor:pointer;
+  }
+  .btn:active{transform:translateY(2px);border-bottom-width:2px;}
+  .btn.quiet,.btn.ghost{
+    background:transparent;color:var(--ink);
+    border:2px solid rgba(43,31,51,.35);border-bottom-width:2px;
+  }
+  .btn.danger{background:var(--signal);color:var(--cream);}
+  .btn:focus-visible,.car:focus-visible,#prompt:focus-visible{outline:4px solid var(--gold);outline-offset:3px;}
+
+  /* ---------- top bar ---------- */
+  #bar{display:flex;align-items:center;gap:.45rem;padding:.6rem .8rem .2rem;flex:none;}
+  #bar a,#bar button.chip{
+    background:rgba(255,255,255,.65);border:2px solid rgba(43,31,51,.25);
+    color:var(--ink);border-radius:12px;padding:.4em .75em;
+    font-family:var(--font);font-size:.85rem;font-weight:700;
+    text-decoration:none;white-space:nowrap;cursor:pointer;
+  }
+  #stageChip{
+    margin-left:auto;background:var(--gold);border-radius:999px;
+    padding:.32em .85em;font-size:.8rem;font-weight:700;white-space:nowrap;
+  }
+
+  /* ---------- prompt ---------- */
+  #prompt{
+    flex:none;margin:.3rem auto 0;
+    background:var(--cream);border:3px solid var(--ink);border-radius:18px;
+    padding:.45em 1.1em;max-width:94vw;
+    font-size:clamp(1.05rem,4vw,1.5rem);font-weight:700;
+    display:flex;align-items:center;gap:.6rem;
+    cursor:pointer;box-shadow:0 4px 0 rgba(43,31,51,.28);
+  }
+  #promptBig{font-size:clamp(2.2rem,8vw,3.4rem);line-height:1;color:var(--signal);letter-spacing:.04em;}
+  #promptBig.pic{letter-spacing:0;}
+  #speaker{width:1.6em;height:1.6em;flex:none;color:var(--signal);display:none;}
+  #prompt.hear #speaker{display:block;}
+  #prompt.hear #promptBig{display:none;}
+
+  /* ---------- cars ---------- */
+  #yard{
+    flex:1;min-height:0;
+    display:flex;align-items:center;justify-content:center;align-content:center;
+    gap:clamp(10px,3vw,26px);
+    padding:.4rem clamp(8px,3vw,24px);
+    flex-wrap:wrap;
+  }
+  .car{
+    background:none;border:none;padding:0;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;
+    transition:transform .18s ease;font-family:var(--font);
+  }
+  .car .body{
+    width:clamp(116px,27vw,200px);height:clamp(84px,19vw,140px);
+    border-radius:16px 16px 8px 8px;border:4px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;position:relative;
+    box-shadow:inset 0 -10px 0 rgba(0,0,0,.14);
+  }
+  .car .body::after{
+    content:"";position:absolute;left:9%;right:9%;top:11%;bottom:14%;
+    border-radius:8px;background:var(--cream);
+    box-shadow:inset 0 0 0 3px rgba(43,31,51,.22);
+  }
+  .car .face{
+    position:relative;z-index:2;line-height:1;color:var(--ink);user-select:none;
+    font-size:clamp(1.9rem,6.6vw,3.4rem);font-weight:700;letter-spacing:.03em;
+    margin-top:-4%;
+  }
+  .car .face.pic{font-size:clamp(2.4rem,8.5vw,4.4rem);letter-spacing:0;}
+  .car .wheels{display:flex;gap:clamp(34px,9vw,70px);margin-top:-6px;}
+  .car .wheels i{
+    width:clamp(22px,5.5vw,34px);height:clamp(22px,5.5vw,34px);border-radius:50%;
+    background:var(--ink);box-shadow:inset 0 0 0 4px var(--cream), inset 0 0 0 6px var(--ink);display:block;
+  }
+  .car.nudge{animation:nudge .45s ease;}
+  .car.tried .body{filter:saturate(.35) brightness(1.05);}
+  .car.hint .body{animation:hint 1s ease infinite;}
+  .car.leaving{animation:leave .5s cubic-bezier(.4,0,.2,1) forwards;}
+  .car.fading{opacity:0;transform:scale(.9);transition:opacity .3s, transform .3s;}
+  @keyframes nudge{
+    0%,100%{transform:translateX(0) rotate(0);}
+    25%{transform:translateX(-9px) rotate(-3deg);}
+    60%{transform:translateX(9px) rotate(3deg);}
+  }
+  @keyframes hint{
+    0%,100%{box-shadow:inset 0 -10px 0 rgba(0,0,0,.14), 0 0 0 0 rgba(255,255,255,.9);}
+    50%{box-shadow:inset 0 -10px 0 rgba(0,0,0,.14), 0 0 0 12px rgba(255,255,255,.55);}
+  }
+  @keyframes leave{to{transform:translate(-46vw,22vh) scale(.36);opacity:0;}}
+
+  /* ---------- track ---------- */
+  #track{position:relative;height:clamp(96px,18vh,150px);flex:none;}
+  #rail{
+    position:absolute;left:0;right:0;top:56%;height:10px;background:var(--rail);
+    border-top:3px solid rgba(255,255,255,.35);
+  }
+  #ties{
+    position:absolute;left:0;right:0;top:calc(56% + 10px);height:14px;
+    background:repeating-linear-gradient(90deg, var(--rail) 0 16px, transparent 16px 46px);opacity:.65;
+  }
+  #train{
+    position:absolute;left:12px;bottom:calc(44% - 4px);
+    display:flex;align-items:flex-end;gap:5px;
+    transition:transform .45s cubic-bezier(.34,1.3,.64,1);
+  }
+  #train.departing{transition:transform 2.2s cubic-bezier(.5,0,.9,.4);transform:translateX(-140vw);}
+  #engine{width:clamp(96px,22vw,140px);height:auto;filter:drop-shadow(0 3px 0 rgba(0,0,0,.2));}
+  .minicar{
+    width:clamp(46px,10.5vw,72px);
+    display:flex;flex-direction:column;align-items:center;animation:couple .4s ease;
+  }
+  .minicar .mbody{
+    width:100%;aspect-ratio:1/.72;border-radius:7px 7px 3px 3px;border:3px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .minicar .mbody span{
+    background:var(--cream);border-radius:4px;padding:0 3px;
+    font-weight:700;font-size:clamp(.72rem,2.3vw,1.05rem);line-height:1.25;color:var(--ink);
+  }
+  .minicar .mwheels{display:flex;gap:clamp(14px,3.4vw,24px);margin-top:-3px;}
+  .minicar .mwheels i{width:11px;height:11px;border-radius:50%;background:var(--ink);box-shadow:inset 0 0 0 2px var(--cream);}
+  @keyframes couple{from{transform:translateX(40px) scale(.8);opacity:0;} to{transform:none;opacity:1;}}
+
+  .smoke{animation:puff 2.4s linear infinite;transform-origin:center;}
+  .smoke:nth-of-type(2){animation-delay:.8s;}
+  .smoke:nth-of-type(3){animation-delay:1.6s;}
+  @keyframes puff{
+    0%{opacity:0;transform:translate(0,0) scale(.4);}
+    25%{opacity:.85;}
+    100%{opacity:0;transform:translate(-26px,-40px) scale(1.5);}
+  }
+
+  /* ---------- promotion overlay ---------- */
+  #overlay{
+    position:absolute;inset:0;z-index:40;display:none;
+    background:rgba(43,31,51,.6);padding:1rem;overflow:auto;
+  }
+  #overlay.open{display:flex;align-items:center;justify-content:center;}
+  .sheet{
+    background:var(--cream);border:4px solid var(--ink);border-radius:20px;
+    max-width:520px;width:100%;padding:1.2rem 1.3rem 1.3rem;
+    max-height:92dvh;overflow:auto;margin:auto;text-align:center;
+  }
+  .sheet h2{margin:.2rem 0 .5rem;font-size:1.5rem;}
+  .sheet p{margin:.35rem 0;font-size:1.05rem;line-height:1.55;}
+  .sheet .big{font-size:3.2rem;line-height:1.1;}
+  .sheet .eg{font-size:1.6rem;font-weight:700;letter-spacing:.04em;color:var(--signal);margin:.5rem 0;}
+  .sheet .actions{display:flex;gap:.6rem;justify-content:center;margin-top:1.1rem;}
+
+  /* Capitals are display-only: the words stay lowercase underneath, so the
+     voice, the saved progress and the word lists don't change. */
+  #app.caps #promptBig,#app.caps .car .face,#app.caps .minicar .mbody span,
+  #app.caps .sheet .eg{text-transform:uppercase;}
+  #app.caps .car .face:not(.pic){letter-spacing:.01em;font-size:clamp(1.6rem,5.6vw,3rem);}
+
+  .words{display:flex;flex-wrap:wrap;gap:6px;}
+  .words span{background:rgba(43,31,51,.07);border-radius:8px;padding:2px 9px;font-weight:700;font-size:1.05rem;}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="bar">
+    <a href="../../">&#8592; Games</a>
+    <button class="chip" id="grownups">Grown-ups</button>
+    <span id="stageChip"></span>
+  </div>
+
+  <div id="prompt" role="button" tabindex="0" aria-live="polite">
+    <svg id="speaker" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4 4 0 0 0-2-3.5v7a4 4 0 0 0 2-3.5zM14.5 3.2v2.1A6.8 6.8 0 0 1 14.5 20.8v2.1a8.8 8.8 0 0 0 0-19.7z"/>
+    </svg>
+    <span id="promptText"></span>
+    <span id="promptBig"></span>
+  </div>
+
+  <div id="yard"></div>
+
+  <div id="track">
+    <div id="rail"></div>
+    <div id="ties"></div>
+    <div id="train"></div>
+  </div>
+
+  <div id="overlay" aria-hidden="true"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const { pick, shuffle, store, tone } = Kit;
+  const yard = $("#yard"), train = $("#train");
+
+  const KEY = "wordtrain:v1";
+  const TRAIN_LEN = 5;
+
+  /* ---------------- the words ----------------
+     Every word has one vowel making its short sound. Three letters for stages
+     1–4; four letters (a blend, a double letter, or sh/ch/th/ck/ng) for 5–6.
+     Left out on purpose: x-endings bar a few classics, r after the vowel
+     (car, her), w/y after the vowel (saw, day), soft c/g, and a, o in words
+     like "ball" or "son" where the vowel isn't the short sound.
+
+     The picture is optional. A word with one can be the answer on any kind of
+     question; without one it's only ever a written word on a car — which is
+     still most of the reading. Emoji are kept to ones every device has drawn
+     for years, and to ones he'd name the same way we do. */
+  const PICS = {
+    cat:"🐱", cap:"🧢", can:"🥫", bat:"🦇", hat:"🎩", rat:"🐀", map:"🗺️", van:"🚐",
+    man:"👨", pan:"🍳", bag:"👜", tag:"🏷️", sad:"😢", mad:"😠", ram:"🐏", cab:"🚕",
+    bed:"🛏️", pen:"🖊️", hen:"🐔", ten:"🔟", net:"🥅", web:"🕸️", leg:"🦵",
+    pig:"🐷", pin:"📌", bin:"🗑️", lip:"👄", kid:"🧒", six:"6️⃣",
+    dog:"🐶", log:"🪵", fox:"🦊", box:"📦", hot:"🥵",
+    bus:"🚌", sun:"☀️", cup:"🥤", bug:"🐛", mug:"☕", nut:"🥜", hut:"🛖", tub:"🛁", run:"🏃", hug:"🫂",
+    frog:"🐸", flag:"🚩", crab:"🦀", drum:"🥁", swim:"🏊", sled:"🛷", hand:"✋", tent:"⛺",
+    vest:"🦺", milk:"🥛", gift:"🎁", mask:"🎭", ship:"🚢", fish:"🐟", duck:"🦆", sock:"🧦",
+    rock:"🪨", lock:"🔒", bell:"🔔", kiss:"💋", ring:"💍", stop:"🛑", plug:"🔌"
+  };
+  const WORDS3 = (
+    "bad bag bat cab can cap cat dad fan fat gas had ham hat jam lab lap mad man map mat nap pan pat " +
+    "rag ram ran rat sad sat tag tan tap van wag yak zap jab " +
+    "bed beg bet den fed get hen jet leg let men met net peg pen pet red set ten vet web wet yes yet " +
+    "big bib bin bit dig dim dip fig fin fit hid him hip hit kid kit lid lip lit pig pin pit rib rid " +
+    "rim rip sip sit six tin tip wig win zip " +
+    "bog cob cod cot dog dot fog got hog hop hot jog log lot mob mom mop nod not pod pop pot rob rod " +
+    "rot sob top fox box " +
+    "bud bug bun bus cub cup cut dug fun gum hug hum hut jug mud mug nut pup rub rug run sub sum sun tub tug yum"
+  ).split(" ");
+  const WORDS4 = (
+    "flag flap flat flip slip slap clap clip trip drip ship shop chip chop chin shin thin then this that with " +
+    "fish dish wish sock sick sack lock lick lack luck duck dock deck neck peck pick pack back rock rack kick " +
+    "kiss miss hiss mess less bell belt melt felt bill hill fill will well tell sell doll dull hand band sand " +
+    "land lend send bend mend tent bent dent rent sent went test best nest rest vest west pest milk silk gift " +
+    "lift sift mask task desk disk frog drum crab grab crib swim slim sled shed step stop spot spit skip skin spin spun " +
+    "plug plum slug snug hunt hint mint tint pink sink link wink ring sing king wing rang sang bang hang hung " +
+    "lung jump bump lamp camp damp ramp"
+  ).split(" ");
+  const ALL_WORDS = WORDS3.concat(WORDS4);
+
+  const isVowel = ch => "aeiou".includes(ch);
+
+  /* ---------------- stages ----------------
+     The ladder is how close the other cars are to the right word — that's
+     what decides how much of the word he has to actually read. */
+  const STAGES = {
+    1:{ len:3, name:"first letters",   chip:"First letters" },
+    2:{ len:3, name:"same start",      chip:"Read to the end" },
+    3:{ len:3, name:"middle sound",    chip:"The middle sound" },
+    4:{ len:3, name:"any letter",      chip:"Every letter" },
+    5:{ len:4, name:"longer words",    chip:"Longer words" },
+    6:{ len:4, name:"long and close",  chip:"Long and close" }
+  };
+  const TOP_STAGE = 6;
+
+  /* Which positions differ between two same-length words. */
+  function diffs(a, b){
+    const p = [];
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) p.push(i);
+    return p;
+  }
+
+  /* For each stage, an ordered list of what makes a good distractor. The first
+     rule is the stage's real job; the rest are fallbacks for words that don't
+     have enough close neighbours (most often on picture questions, where the
+     other cars need a picture too). */
+  const DIFF_START = (t,p) => p.includes(0);
+  const SAME_START = (t,p) => p.length && !p.includes(0);
+  const ONLY_END   = (t,p) => p.length === 1 && p[0] === t.length - 1;
+  const SAME_START_NEW_END = (t,p) => !p.includes(0) && p.includes(t.length - 1);
+  const ONLY_VOWEL = (t,p) => p.length === 1 && isVowel(t[p[0]]);
+  const ONE_OFF    = (t,p) => p.length === 1;
+  const RULES = {
+    1:[DIFF_START],
+    2:[ONLY_END, SAME_START_NEW_END, SAME_START, DIFF_START],
+    3:[ONLY_VOWEL, ONE_OFF, SAME_START, DIFF_START],
+    4:[ONE_OFF, SAME_START, DIFF_START],
+    5:[DIFF_START],
+    6:[ONE_OFF, SAME_START, DIFF_START]
+  };
+  // Stages where every car starts with a different letter, so the first
+  // letter alone is enough — the on-ramp before each word length.
+  const firstLetterStage = st => st === 1 || st === 5;
+
+  function pickDistractors(target, pool, stage, n){
+    const chosen = [], firsts = new Set([target[0]]);
+    const cands = shuffle(pool.filter(w => w !== target && w.length === target.length))
+      .map(w => ({ w, p: diffs(target, w) }));
+    for (const rule of RULES[stage]){
+      // On the mixed stages, spread the changed letter around so no single
+      // position is a reliable shortcut.
+      const usedPos = new Set();
+      let fits = cands.filter(c => rule(target, c.p) && !chosen.includes(c.w));
+      if (rule === ONE_OFF){
+        const spread = [];
+        while (fits.length){
+          const i = Math.max(0, fits.findIndex(c => !usedPos.has(c.p[0])));
+          usedPos.add(fits[i].p[0]);
+          spread.push(fits.splice(i, 1)[0]);
+        }
+        fits = spread;
+      }
+      for (const c of fits){
+        if (chosen.length >= n) return chosen;
+        if (firstLetterStage(stage) && firsts.has(c.w[0])) continue;
+        firsts.add(c.w[0]);
+        chosen.push(c.w);
+      }
+    }
+    // Last resort: anything of the right length.
+    for (const c of cands){
+      if (chosen.length >= n) break;
+      if (!chosen.includes(c.w)) chosen.push(c.w);
+    }
+    return chosen;
+  }
+
+  // How many cars this word can fill without falling back to a different
+  // first letter — used to steer toward answers that exercise the stage.
+  function closeCount(target, pool, stage){
+    if (firstLetterStage(stage)){
+      return new Set(pool.filter(w => w.length === target.length && w[0] !== target[0]).map(w => w[0])).size;
+    }
+    const rules = RULES[stage].filter(r => r !== DIFF_START);
+    return pool.filter(w => w !== target && w.length === target.length &&
+      rules.some(r => r(target, diffs(target, w)))).length;
+  }
+
+  /* ---------------- kinds of question ----------------
+     hear: the word is spoken, the cars are written words.
+     read: the word is written, the cars are pictures.
+     see:  a picture, and the cars are written words.
+     Only hear says the answer out loud, so read and see stay reading. */
+  const TYPES = {
+    hear:{ label:"Hear it",  carsArePics:false, needsPic:false },
+    read:{ label:"Read it",  carsArePics:true,  needsPic:true  },
+    see: { label:"Picture",  carsArePics:false, needsPic:true  }
+  };
+
+  const CAR_COLORS = ["#D6402E","#E8A33D","#3E7CB1","#8A6BA8","#4FA36B","#D98BA0"];
+
+  /* ---------------- state ---------------- */
+  let S = null;        // everything that persists
+  let R = null;        // the round in progress
+  let locked = false;
+  let sessionStart = Date.now();
+
+  const persist = Kit.debounce(() => store.set(KEY, S), 350);
+
+  function applySettings(){
+    Kit.sound.enabled = S.sound;
+    Kit.speech.enabled = S.voice;
+    $("#app").classList.toggle("caps", S.caps);
+  }
+
+  function freshState(){
+    return {
+      stage:1, stageMode:"auto",
+      hist:[],                         // the evidence window, cleared on each move
+      typeMode:"mix", cars:3,
+      words:{},                        // word -> {right, wrong, streak}
+      types:{ hear:{right:0,wrong:0}, read:{right:0,wrong:0}, see:{right:0,wrong:0} },
+      // What a wrong pick had in common with the answer — where his eyes stopped.
+      misses:{ start:0, end:0, middle:0 },
+      rounds:0, cleanRounds:0, trains:0,
+      recent:[], cargo:[],
+      caps:false,                      // show every word in capitals
+      sound:true, voice:true,
+      seconds:0, sessions:0,
+      round:null
+    };
+  }
+
+  /* ---------------- speech & sound ---------------- */
+  // A lone word reads more reliably with a full stop, and a touch slow.
+  const sayWord = (w, after) => Kit.say(w + ".", 0.72, 1.05, after ? { onend: after } : undefined);
+  const say = (text, rate) => Kit.say(text, rate || 0.9, 1.05);
+
+  const chime   = () => { tone(523,0.16,0); tone(659,0.16,0.12); tone(784,0.3,0.24); };
+  const whistle = () => { tone(392,0.5,0,"sawtooth",0.12); tone(587,0.7,0.08,"sawtooth",0.12); };
+  const clunk   = () => tone(180,0.12,0,"square",0.1);
+  const fanfare = () => [392,523,659,784,1046].forEach((f,i) => tone(f, 0.3, i*0.12, "triangle", 0.15));
+
+  /* ---------------- building a round ---------------- */
+  function availableTypes(){
+    // Hearing it needs the voice; without it, fall back to the reading kinds.
+    const ok = Object.keys(TYPES).filter(t => t !== "hear" || S.voice);
+    if (S.typeMode !== "mix" && ok.includes(S.typeMode)) return [S.typeMode];
+    return ok;
+  }
+
+  function chooseType(){
+    const ok = availableTypes();
+    if (ok.length === 1) return ok[0];
+    // Mix them, but never the same kind three times running.
+    const last2 = S.hist.slice(-2).map(h => h.type);
+    const fresh = ok.filter(t => !(last2.length === 2 && last2[0] === t && last2[1] === t));
+    return pick(fresh);
+  }
+
+  function chooseTarget(type, len, stage, n){
+    const T = TYPES[type];
+    const pool = (T.needsPic ? Object.keys(PICS) : ALL_WORDS).filter(w => w.length === len);
+    const carPool = (T.carsArePics ? Object.keys(PICS) : ALL_WORDS);
+    let fits = pool.filter(w => !S.recent.includes(w));
+    if (!fits.length) fits = pool;
+    // Prefer words that have enough close neighbours to make this stage's point.
+    const strong = fits.filter(w => closeCount(w, carPool, stage) >= n - 1);
+    if (strong.length >= 3) fits = strong;
+    // Lean toward words he's missed or hasn't met, away from ones he's solid on.
+    const bag = [];
+    fits.forEach(w => {
+      const d = S.words[w];
+      const weight = !d ? 3 : Math.max(1, 3 + d.wrong - Math.min(d.streak, 3));
+      for (let i = 0; i < weight; i++) bag.push(w);
+    });
+    return pick(bag);
+  }
+
+  function makeRound(){
+    const stage = S.stage, len = STAGES[stage].len, n = S.cars;
+    const type = chooseType();
+    const target = chooseTarget(type, len, stage, n);
+    const carPool = TYPES[type].carsArePics ? Object.keys(PICS) : ALL_WORDS;
+    const others = pickDistractors(target, carPool, stage, n - 1);
+    return { type, target, options: shuffle(others.concat(target)), misses:0, tried:[] };
+  }
+
+  /* ---------------- drawing ---------------- */
+  const ENGINE_SVG = `
+  <svg id="engine" viewBox="0 0 160 112" xmlns="http://www.w3.org/2000/svg" aria-label="Locomotive">
+    <circle class="smoke" cx="40" cy="22" r="7" fill="#ffffff" opacity="0"/>
+    <circle class="smoke" cx="40" cy="22" r="6" fill="#ffffff" opacity="0"/>
+    <circle class="smoke" cx="40" cy="22" r="8" fill="#ffffff" opacity="0"/>
+    <rect x="30" y="24" width="20" height="24" rx="3" fill="#2B1F33"/>
+    <rect x="26" y="20" width="28" height="9" rx="4" fill="#2B1F33"/>
+    <rect x="18" y="44" width="86" height="34" rx="17" fill="#2F5D8C" stroke="#2B1F33" stroke-width="4"/>
+    <circle cx="24" cy="61" r="8" fill="#F2C14E" stroke="#2B1F33" stroke-width="3"/>
+    <rect x="96" y="20" width="48" height="58" rx="7" fill="#2F5D8C" stroke="#2B1F33" stroke-width="4"/>
+    <rect x="106" y="31" width="28" height="22" rx="4" fill="#FFF7EA" stroke="#2B1F33" stroke-width="3"/>
+    <rect x="10" y="76" width="140" height="11" rx="4" fill="#2B1F33"/>
+    <circle cx="122" cy="95" r="15" fill="#2B1F33"/><circle cx="122" cy="95" r="7" fill="#FFF7EA"/>
+    <circle cx="52" cy="98" r="11" fill="#2B1F33"/><circle cx="52" cy="98" r="5" fill="#FFF7EA"/>
+    <circle cx="84" cy="98" r="11" fill="#2B1F33"/><circle cx="84" cy="98" r="5" fill="#FFF7EA"/>
+  </svg>`;
+
+  function carEl(word, idx, asPic){
+    const b = document.createElement("button");
+    b.className = "car";
+    b.type = "button";
+    b.dataset.word = word;
+    b.setAttribute("aria-label", asPic ? "Picture" : word);
+    b.innerHTML =
+      `<div class="body" style="background:${CAR_COLORS[idx % CAR_COLORS.length]}">
+         <span class="face${asPic ? " pic" : ""}">${asPic ? PICS[word] : word}</span>
+       </div>
+       <div class="wheels"><i></i><i></i></div>`;
+    return b;
+  }
+
+  // The train always carries the written word — one more look at it.
+  function miniCar(word, idx){
+    const d = document.createElement("div");
+    d.className = "minicar";
+    d.innerHTML =
+      `<div class="mbody" style="background:${CAR_COLORS[idx % CAR_COLORS.length]}"><span>${word}</span></div>
+       <div class="mwheels"><i></i><i></i></div>`;
+    return d;
+  }
+
+  function renderTrain(){
+    train.innerHTML = ENGINE_SVG;
+    S.cargo.forEach((w,i) => train.appendChild(miniCar(w,i)));
+  }
+
+  function renderStage(){ $("#stageChip").textContent = STAGES[S.stage].chip; }
+
+  const PROMPTS = {
+    hear:["Which car says this?","Find the word you hear","Listen, then find it"],
+    read:["Find the picture for","Which picture is","Load the picture for"],
+    see: ["Find the word for","Which car says","Load the word for"]
+  };
+
+  function drawPrompt(){
+    const p = $("#prompt"), big = $("#promptBig");
+    p.className = R.type;
+    $("#promptText").textContent = PROMPTS[R.type][R.promptIx || 0];
+    big.className = R.type === "see" ? "pic" : "";
+    big.textContent = R.type === "read" ? R.target : R.type === "see" ? PICS[R.target] : "";
+    p.setAttribute("aria-label", R.type === "hear" ? "Hear the word again" : "");
+  }
+
+  function drawYard(){
+    yard.innerHTML = "";
+    const pics = TYPES[R.type].carsArePics;
+    R.options.forEach((w,i) => {
+      const c = carEl(w, i, pics);
+      if (R.tried.includes(w)) c.classList.add("tried");
+      c.addEventListener("click", () => { Kit.audio(); onPick(c, w); });
+      yard.appendChild(c);
+    });
+    if (R.misses >= 2) hintCar();
+  }
+
+  function startRound(announce){
+    locked = false;
+    if (R.promptIx === undefined) R.promptIx = Math.floor(Math.random() * 3);
+    drawPrompt();
+    drawYard();
+    if (announce !== false) setTimeout(announceRound, 260);
+    S.round = R; persist();
+  }
+
+  function announceRound(){
+    if (!R) return;
+    if (R.type === "hear") sayWord(R.target);
+    else if (R.type === "read") say("Read the word. Find its picture.");
+    else say("What's this picture? Find its word.");
+  }
+
+  function hintCar(){
+    const right = [...yard.children].find(c => c.dataset.word === R.target);
+    if (right) right.classList.add("hint");
+  }
+
+  /* ---------------- answering ---------------- */
+  function wordStats(w){ return S.words[w] || (S.words[w] = { right:0, wrong:0, streak:0 }); }
+
+  // Where the wrong pick first parted from the answer. "end" or "middle" means
+  // he got the start right and stopped reading — the thing this game is about.
+  function missKind(target, picked){
+    if (picked.length !== target.length) return "start";
+    const p = diffs(target, picked);
+    if (p.includes(0)) return "start";
+    return p.every(i => isVowel(target[i])) ? "middle" : "end";
+  }
+
+  function onPick(el, word){
+    if (locked || !R || R.tried.includes(word)) return;
+    const d = wordStats(R.target);
+
+    if (word === R.target){
+      locked = true;
+      const clean = R.misses === 0;
+      d.right++; if (clean) d.streak++;
+      S.types[R.type].right++;
+      S.rounds++; if (clean) S.cleanRounds++;
+      record(clean);
+      chime();
+      say(R.target + "! " + pick(["Yes!", "You got it!", "That's it!", "Nice reading!"]), 0.85);
+
+      [...yard.children].forEach(c => { if (c !== el) c.classList.add("fading"); });
+      el.classList.add("leaving");
+      S.recent = S.recent.concat(R.target).slice(-8);
+      S.round = null;
+
+      setTimeout(() => {
+        S.cargo.push(R.target);
+        renderTrain();
+        persist();
+        if (S.cargo.length >= TRAIN_LEN) depart();
+        else setTimeout(finishRound, 600);
+      }, 430);
+      return;
+    }
+
+    R.misses++;
+    R.tried.push(word);
+    if (R.misses === 1){ d.wrong++; d.streak = 0; S.types[R.type].wrong++; }
+    S.misses[missKind(R.target, word)]++;
+    clunk();
+    el.classList.remove("nudge"); void el.offsetWidth; el.classList.add("nudge", "tried");
+
+    // Name what he picked, so he can hear how it differs. Only the hear kind
+    // ever says the answer — until the second miss, when we show him.
+    const picked = TYPES[R.type].carsArePics ? "That's " + article(word) + " " + word + "." : "That one says " + word + ".";
+    if (R.misses >= 2){
+      hintCar();
+      say(picked + " This one is " + R.target + ".", 0.85);
+    } else if (R.type === "hear"){
+      say(picked + " Find " + R.target + ".", 0.85);
+    } else {
+      say(picked + " Try again.", 0.85);
+    }
+    S.round = R; persist();
+  }
+
+  const article = w => (isVowel(w[0]) ? "an" : "a");
+
+  function record(clean){
+    S.hist.push({ stage:S.stage, type:R.type, clean });
+    if (S.hist.length > 40) S.hist = S.hist.slice(-40);
+  }
+
+  function depart(){
+    locked = true;
+    whistle();
+    setTimeout(() => say("All aboard! Here it goes.", 0.9), 300);
+    S.trains++;
+    train.classList.add("departing");
+    setTimeout(() => {
+      S.cargo = [];
+      train.classList.remove("departing");
+      renderTrain();
+      persist();
+      finishRound();
+    }, 2400);
+  }
+
+  function finishRound(){ if (!considerStage()) nextRound(); }
+  function nextRound(){ R = makeRound(); startRound(true); }
+
+  /* ---------------- moving him along ----------------
+     7 clean out of the last 8 at this stage moves up; 2 or fewer clean out of
+     the last 6 moves back. The window clears on any move. */
+  function considerStage(){
+    if (S.stageMode !== "auto") return false;
+    const recent = S.hist.filter(h => h.stage === S.stage);
+    const last8 = recent.slice(-8);
+    if (S.stage < TOP_STAGE && last8.length >= 8 && last8.filter(h => h.clean).length >= 7){
+      return move(S.stage + 1, PROMO);
+    }
+    const last6 = recent.slice(-6);
+    if (S.stage > 1 && last6.length >= 6 && last6.filter(h => h.clean).length <= 2){
+      return move(S.stage - 1, DEMO);
+    }
+    return false;
+  }
+
+  // The new rule, in his words, with a sample of what the cars will look like.
+  const PROMO = {
+    2:{ emoji:"🔚", head:"Read to the end!", eg:"cat · cap · can",
+        body:"Now the words all start the same. Look at the last letter too!",
+        voice:"Now the words all start the same. Read all the way to the end!" },
+    3:{ emoji:"🎯", head:"The middle sound", eg:"hat · hot · hut",
+        body:"Now only the middle letter changes. Listen for the sound in the middle.",
+        voice:"Now only the middle sound changes. Hat. Hot. Hut." },
+    4:{ emoji:"🕵️", head:"Word detective", eg:"cat · hat · cot · cap",
+        body:"Now any letter might change — the start, the middle or the end. Check every letter.",
+        voice:"Now any letter might change. Check every letter, like a detective." },
+    5:{ emoji:"🚂", head:"Longer words!", eg:"frog · ship · duck",
+        body:"Four-letter words are coming aboard. Sound out every letter, then blend them.",
+        voice:"Longer words are coming aboard! Sound out every letter." },
+    6:{ emoji:"⭐", head:"Long and tricky", eg:"lock · luck · sock",
+        body:"The long words look alike now. Read every letter, start to end.",
+        voice:"The long words look alike now. Read every letter." }
+  };
+  const DEMO = {
+    1:{ emoji:"🚃", head:"Back to first letters", eg:"cat · dog · sun",
+        body:"Those were tricky! For a while, every word starts with a different letter.",
+        voice:"Those were tricky. Let's do some easier ones for a while." },
+    2:{ emoji:"🚃", head:"Back to the ends", eg:"cat · cap · can",
+        body:"Those were tricky! For a while, it's just the last letter that changes.",
+        voice:"Those were tricky. For a while, it's just the end that changes." },
+    3:{ emoji:"🚃", head:"Back to the middle", eg:"hat · hot · hut",
+        body:"Those were tricky! For a while, only the middle letter changes.",
+        voice:"Those were tricky. For a while, only the middle changes." },
+    4:{ emoji:"🚃", head:"Short words again", eg:"cat · hat · cot",
+        body:"The long ones were tricky! Let's practice on short words for a while.",
+        voice:"The long ones were tricky. Let's do short words for a while." },
+    5:{ emoji:"🚃", head:"Easier long words", eg:"frog · ship · duck",
+        body:"Those were tricky! The long words will start with different letters for a while.",
+        voice:"Those were tricky. Let's do easier long words for a while." }
+  };
+
+  function move(to, copy){
+    S.stage = to; S.hist = [];
+    renderStage(); persist();
+    if (copy === PROMO) fanfare();
+    celebrate(copy[to]);
+    return true;
+  }
+
+  function celebrate(c){
+    locked = true;
+    const o = $("#overlay");
+    o.innerHTML =
+      '<div class="sheet">' +
+        '<div class="big">' + c.emoji + "</div>" +
+        "<h2>" + c.head + "</h2><p>" + c.body + "</p>" +
+        '<div class="eg">' + c.eg + "</div>" +
+        '<div class="actions"><button class="btn" id="goOn">Keep going</button></div>' +
+      "</div>";
+    o.classList.add("open");
+    o.setAttribute("aria-hidden", "false");
+    say(c.voice, 0.92);
+    $("#goOn").focus();
+    $("#goOn").onclick = () => {
+      Kit.audio();
+      o.classList.remove("open"); o.setAttribute("aria-hidden", "true"); o.innerHTML = "";
+      nextRound();
+    };
+  }
+
+  /* ---------------- grown-ups ---------------- */
+  const STAGE_ABOUT = {
+    1:"Three-letter words, and every car starts with a different letter. The first letter is enough here — this is matching sounds to letters, and getting used to the game.",
+    2:"Three-letter words that all start the same (cat, cap, can). He can’t stop at the first letter any more; he has to read through to the end.",
+    3:"Three-letter words where only the vowel changes (hat, hot, hut). Short vowels sound alike, so this is the hardest step for most kids — expect it to take a while.",
+    4:"Three-letter words that differ by one letter anywhere (cat, hat, cot, cap). No position is a shortcut, so this is real left-to-right reading.",
+    5:"Four-letter words with blends and pairs like fr-, sl-, -st, sh, ck (frog, ship, duck). The other cars start differently, so the new part is holding four sounds together.",
+    6:"Four-letter words that differ by one letter (lock, luck, lick, sock). This is reading every letter of a longer word."
+  };
+
+  function pct(o){ const t = o.right + o.wrong; return t ? Math.round(o.right / t * 100) + "%" : "—"; }
+
+  function watchFor(){
+    const m = S.misses, total = m.start + m.end + m.middle;
+    let html = "";
+    if (total < 6){
+      html += "<p>Not enough misses yet to see a pattern. Check back after a few trains.</p>";
+    } else if (m.end + m.middle > m.start * 1.5){
+      html += m.middle >= m.end
+        ? "<p>Most of his misses get the first letter right and the <b>middle vowel</b> wrong. " +
+          "That’s normal — short a, e, i, o and u sound alike, e and i especially. " +
+          "Say the two words slowly side by side (“p-i-n… p-e-n”) and let him hear the middle.</p>"
+        : "<p>Most of his misses get the first letter right and the rest wrong. " +
+          "He’s reading the first letter and guessing — the usual step just before reading the whole word. " +
+          "When you read with him, run a finger under every letter to the end.</p>";
+    } else {
+      html += "<p>His misses are mostly words that start with a different letter, so letter sounds " +
+              "themselves are still the thing to practice. Letter Train helps with that.</p>";
+    }
+    html += '<p class="gu-muted">Right first try — when he hears it: ' + pct(S.types.hear) +
+            ", reading the word: " + pct(S.types.read) + ", from a picture: " + pct(S.types.see) +
+            ". Hearing it is usually easiest; reading a word to find its picture is the real reading.</p>";
+
+    const trouble = Object.keys(S.words)
+      .filter(w => S.words[w].wrong > 0)
+      .sort((a,b) => (S.words[b].wrong - S.words[b].streak) - (S.words[a].wrong - S.words[a].streak))
+      .slice(0, 12);
+    if (trouble.length){
+      html += "<p>Words that have tripped him up:</p><div class=\"words\">" +
+              trouble.map(w => "<span>" + w + "</span>").join("") + "</div>";
+    }
+    return html;
+  }
+
+  function panelConfig(){
+    const cleanPct = S.rounds ? Math.round(S.cleanRounds / S.rounds * 100) : 0;
+    const mins = Math.round((S.seconds + (Date.now() - sessionStart) / 1000) / 60);
+    const onOff = [{value:"1",label:"On"},{value:"0",label:"Off"}];
+
+    return {
+      title: "How he’s doing",
+      intro: "All of this comes from ordinary play — nothing here is a test.",
+      stats: [
+        { value:S.rounds,       label:"Words read" },
+        { value:cleanPct + "%", label:"Right first try" },
+        { value:S.trains,       label:"Trains sent off" },
+        { value:mins,           label:"Minutes played" }
+      ],
+      sections: [
+        { title:"Stage " + S.stage + " of " + TOP_STAGE + " — " + STAGES[S.stage].name,
+          html:"<p>" + STAGE_ABOUT[S.stage] + "</p>" +
+               '<p class="gu-muted">The stage moves on its own: seven right-first-try out of the last ' +
+               "eight moves him up, two or fewer out of six moves him back. There are three kinds of " +
+               "question, mixed: hear a word and find it, read a word and find its picture, or see a " +
+               "picture and find its word.</p>" },
+        { title:"What to watch for", html:watchFor() }
+      ],
+      settings: [
+        { label:"Stage", hint:"Auto moves him along on its own", value:S.stageMode,
+          options:[{value:"auto",label:"Auto"}].concat(
+            Object.keys(STAGES).map(k => ({ value:k, label:k }))),
+          onPick(v){
+            S.stageMode = v;
+            if (v !== "auto") S.stage = +v;
+            S.hist = []; renderStage(); persist();
+          } },
+        { label:"Kinds of question",
+          hint:"Hear it needs the voice on — with the voice off it’s left out of the mix",
+          value:S.typeMode,
+          options:[{value:"mix",label:"Mix"}].concat(
+            Object.keys(TYPES).map(k => ({ value:k, label:TYPES[k].label }))),
+          onPick(v){ S.typeMode = v; persist(); } },
+        { label:"Letters", hint:"Lowercase is what books use; capitals can help while he’s still learning lowercase",
+          value:S.caps ? "1" : "0",
+          options:[{value:"0",label:"abc"},{value:"1",label:"ABC"}],
+          onPick(v){ S.caps = v === "1"; applySettings(); persist(); } },
+        { label:"Cars to choose from", value:String(S.cars),
+          options:[{value:"2",label:"2"},{value:"3",label:"3"},{value:"4",label:"4"}],
+          onPick(v){ S.cars = +v; persist(); } },
+        { label:"Sounds", value:S.sound ? "1" : "0", options:onOff,
+          onPick(v){ S.sound = v === "1"; applySettings(); persist(); } },
+        { label:"Say words out loud", value:S.voice ? "1" : "0", options:onOff,
+          onPick(v){ S.voice = v === "1"; applySettings(); persist(); } }
+      ],
+      footer: store.ok ? "" :
+        '<p class="gu-muted">Heads up: progress isn’t saving in this window, ' +
+        "so these numbers cover today only.</p>",
+      closeLabel: "Back to the train",
+      onClose(){ nextRound(); },
+      reset: {
+        label: "Erase all progress",
+        confirm: "Erase his saved progress and start over?",
+        run(){
+          S = freshState(); S.sessions = 1;
+          applySettings(); store.set(KEY, S);
+          renderStage(); renderTrain(); nextRound();
+        }
+      }
+    };
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#grownups").addEventListener("click", () => { locked = true; Kit.hush(); Grownups.open(panelConfig); });
+
+  function repeatPrompt(){
+    if (!R || locked) return;
+    Kit.audio();
+    announceRound();
+  }
+  $("#prompt").addEventListener("click", repeatPrompt);
+  $("#prompt").addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " "){ e.preventDefault(); e.stopPropagation(); repeatPrompt(); }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (!R || $("#overlay").classList.contains("open") || Grownups.isOpen()) return;
+    Kit.audio();
+    if (e.key >= "1" && e.key <= "9"){
+      const car = yard.children[+e.key - 1];
+      if (car) car.click();
+    } else if (e.key === " " && e.target === document.body){
+      e.preventDefault(); repeatPrompt();
+    }
+  });
+
+  setInterval(() => { if (S){ S.seconds += 15; persist(); } }, 15000);
+  window.addEventListener("beforeunload", () => { if (S) store.set(KEY, S); });
+
+  /* ---------------- boot ---------------- */
+  (async function boot(){
+    const saved = await store.get(KEY);
+    S = saved && saved.hist ? Object.assign(freshState(), saved) : freshState();
+    applySettings();
+    S.sessions = (S.sessions || 0) + 1;
+    sessionStart = Date.now();
+
+    renderStage();
+    renderTrain();
+
+    // Same question he left on, if there was one. It waits behind a start
+    // sheet, because the voice won't speak until he's tapped something.
+    R = (S.round && S.round.target && S.round.options) ? S.round : makeRound();
+    locked = true;
+    const o = $("#overlay");
+    o.innerHTML =
+      '<div class="sheet">' +
+        '<div class="big">🚂</div><h2>Word Train</h2>' +
+        "<p>Find the right car and load it on the train. Five cars and it’s off!</p>" +
+        '<div class="actions"><button class="btn" id="goOn">All aboard</button></div>' +
+      "</div>";
+    o.classList.add("open");
+    o.setAttribute("aria-hidden", "false");
+    $("#goOn").focus();
+    $("#goOn").onclick = () => {
+      Kit.audio();
+      o.classList.remove("open"); o.setAttribute("aria-hidden", "true"); o.innerHTML = "";
+      startRound(true);
+    };
+    persist();
+  })();
+
+})();
+</script>
+</body>
+</html>
